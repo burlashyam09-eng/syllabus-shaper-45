@@ -57,6 +57,26 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        faculty: {
+          DEFAULT: "hsl(var(--faculty))",
+          foreground: "hsl(var(--faculty-foreground))",
+        },
+        student: {
+          DEFAULT: "hsl(var(--student))",
+          foreground: "hsl(var(--student-foreground))",
+        },
+        progress: {
+          DEFAULT: "hsl(var(--progress))",
+          foreground: "hsl(var(--progress-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
