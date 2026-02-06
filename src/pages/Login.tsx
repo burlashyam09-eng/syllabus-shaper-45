@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
+import { useRegulationsStore } from '@/store/regulationsStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,13 +18,6 @@ const branches = [
   'Information Technology',
 ];
 
-const regulations = [
-  'R22 (2022-2026)',
-  'R21 (2021-2025)',
-  'R20 (2020-2024)',
-  'R19 (2019-2023)',
-];
-
 const Login = () => {
   const [role, setRole] = useState<UserRole | null>(null);
   const [email, setEmail] = useState('');
@@ -31,6 +25,7 @@ const Login = () => {
   const [branch, setBranch] = useState('');
   const [regulation, setRegulation] = useState('');
   const { login } = useAuth();
+  const { regulations } = useRegulationsStore();
   const navigate = useNavigate();
 
   const handleLogin = (e: React.FormEvent) => {
@@ -41,7 +36,8 @@ const Login = () => {
       name: email.split('@')[0],
       email,
       role: role!,
-      ...(role === 'faculty' ? { branch } : { regulation }),
+      branch, // Both faculty and students have branch
+      ...(role === 'student' && { regulation }),
     };
     
     login(user);
@@ -131,21 +127,23 @@ const Login = () => {
               />
             </div>
             
-            {role === 'faculty' ? (
-              <div className="space-y-2">
-                <Label>Select Branch</Label>
-                <Select value={branch} onValueChange={setBranch} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose your branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map((b) => (
-                      <SelectItem key={b} value={b}>{b}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
+            {/* Branch selection for both faculty and students */}
+            <div className="space-y-2">
+              <Label>Select Branch</Label>
+              <Select value={branch} onValueChange={setBranch} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose your branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Regulation selection only for students */}
+            {role === 'student' && (
               <div className="space-y-2">
                 <Label>Academic Regulation</Label>
                 <Select value={regulation} onValueChange={setRegulation} required>
