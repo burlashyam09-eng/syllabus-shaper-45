@@ -8,6 +8,7 @@ export interface Resource {
   url?: string;
   content?: string;
   regulation: string;
+  createdBy: string; // Faculty ID who created this
 }
 
 export interface Module {
@@ -32,16 +33,25 @@ export interface Subject {
   code: string;
   units: Unit[];
   regulation: string;
+  branch: string; // Branch this subject belongs to
+  createdBy: string; // Faculty ID who created this
 }
 
 interface SyllabusState {
   subjects: Subject[];
   addSubject: (subject: Subject) => void;
+  updateSubject: (subjectId: string, updates: Partial<Pick<Subject, 'name' | 'code'>>) => void;
+  deleteSubject: (subjectId: string, userId: string) => boolean;
   addUnit: (subjectId: string, unit: Unit) => void;
+  updateUnit: (subjectId: string, unitId: string, updates: Partial<Pick<Unit, 'name'>>) => void;
+  deleteUnit: (subjectId: string, unitId: string, userId: string) => boolean;
   addModule: (subjectId: string, unitId: string, module: Module) => void;
+  updateModule: (subjectId: string, unitId: string, moduleId: string, updates: Partial<Pick<Module, 'name'>>) => void;
+  deleteModule: (subjectId: string, unitId: string, moduleId: string, userId: string) => boolean;
   addResource: (subjectId: string, unitId: string, moduleId: string, resource: Resource) => void;
+  deleteResource: (subjectId: string, unitId: string, moduleId: string, resourceId: string, userId: string) => boolean;
   toggleModuleComplete: (subjectId: string, unitId: string, moduleId: string) => void;
-  parseSyllabus: (text: string, regulation: string) => Subject[];
+  getSubjectsByBranchAndRegulation: (branch: string, regulation?: string) => Subject[];
 }
 
 const initialSubjects: Subject[] = [
@@ -50,6 +60,8 @@ const initialSubjects: Subject[] = [
     name: 'Data Structures',
     code: 'CS201',
     regulation: 'R22 (2022-2026)',
+    branch: 'Computer Science',
+    createdBy: 'system',
     units: [
       {
         id: 'u1',
@@ -62,8 +74,8 @@ const initialSubjects: Subject[] = [
             topics: ['1D Arrays', '2D Arrays', 'String Operations'],
             completed: false,
             resources: [
-              { id: 'r1', type: 'youtube', title: 'Arrays Explained', url: 'https://youtube.com', regulation: 'R22 (2022-2026)' },
-              { id: 'r2', type: 'notes', title: 'Array Notes PDF', url: '#', regulation: 'R22 (2022-2026)' },
+              { id: 'r1', type: 'youtube', title: 'Arrays Explained', url: 'https://youtube.com', regulation: 'R22 (2022-2026)', createdBy: 'system' },
+              { id: 'r2', type: 'notes', title: 'Array Notes PDF', url: '#', regulation: 'R22 (2022-2026)', createdBy: 'system' },
             ],
           },
           {
@@ -101,12 +113,58 @@ export const useSyllabusStore = create<SyllabusState>()(
       addSubject: (subject) => set((state) => ({ 
         subjects: [...state.subjects, subject] 
       })),
+
+      updateSubject: (subjectId, updates) => set((state) => ({
+        subjects: state.subjects.map((s) =>
+          s.id === subjectId ? { ...s, ...updates } : s
+        ),
+      })),
+
+      deleteSubject: (subjectId, userId) => {
+        const state = get();
+        const subject = state.subjects.find((s) => s.id === subjectId);
+        // Only the creator can delete
+        if (!subject || (subject.createdBy !== userId && subject.createdBy !== 'system')) {
+          return false;
+        }
+        set({ subjects: state.subjects.filter((s) => s.id !== subjectId) });
+        return true;
+      },
       
       addUnit: (subjectId, unit) => set((state) => ({
         subjects: state.subjects.map((s) =>
           s.id === subjectId ? { ...s, units: [...s.units, unit] } : s
         ),
       })),
+
+      updateUnit: (subjectId, unitId, updates) => set((state) => ({
+        subjects: state.subjects.map((s) =>
+          s.id === subjectId
+            ? {
+                ...s,
+                units: s.units.map((u) =>
+                  u.id === unitId ? { ...u, ...updates } : u
+                ),
+              }
+            : s
+        ),
+      })),
+
+      deleteUnit: (subjectId, unitId, userId) => {
+        const state = get();
+        const subject = state.subjects.find((s) => s.id === subjectId);
+        if (!subject || (subject.createdBy !== userId && subject.createdBy !== 'system')) {
+          return false;
+        }
+        set({
+          subjects: state.subjects.map((s) =>
+            s.id === subjectId
+              ? { ...s, units: s.units.filter((u) => u.id !== unitId) }
+              : s
+          ),
+        });
+        return true;
+      },
       
       addModule: (subjectId, unitId, module) => set((state) => ({
         subjects: state.subjects.map((s) =>
@@ -120,6 +178,49 @@ export const useSyllabusStore = create<SyllabusState>()(
             : s
         ),
       })),
+
+      updateModule: (subjectId, unitId, moduleId, updates) => set((state) => ({
+        subjects: state.subjects.map((s) =>
+          s.id === subjectId
+            ? {
+                ...s,
+                units: s.units.map((u) =>
+                  u.id === unitId
+                    ? {
+                        ...u,
+                        modules: u.modules.map((m) =>
+                          m.id === moduleId ? { ...m, ...updates } : m
+                        ),
+                      }
+                    : u
+                ),
+              }
+            : s
+        ),
+      })),
+
+      deleteModule: (subjectId, unitId, moduleId, userId) => {
+        const state = get();
+        const subject = state.subjects.find((s) => s.id === subjectId);
+        if (!subject || (subject.createdBy !== userId && subject.createdBy !== 'system')) {
+          return false;
+        }
+        set({
+          subjects: state.subjects.map((s) =>
+            s.id === subjectId
+              ? {
+                  ...s,
+                  units: s.units.map((u) =>
+                    u.id === unitId
+                      ? { ...u, modules: u.modules.filter((m) => m.id !== moduleId) }
+                      : u
+                  ),
+                }
+              : s
+          ),
+        });
+        return true;
+      },
       
       addResource: (subjectId, unitId, moduleId, resource) => set((state) => ({
         subjects: state.subjects.map((s) =>
@@ -142,6 +243,42 @@ export const useSyllabusStore = create<SyllabusState>()(
             : s
         ),
       })),
+
+      deleteResource: (subjectId, unitId, moduleId, resourceId, userId) => {
+        const state = get();
+        const subject = state.subjects.find((s) => s.id === subjectId);
+        const unit = subject?.units.find((u) => u.id === unitId);
+        const module = unit?.modules.find((m) => m.id === moduleId);
+        const resource = module?.resources.find((r) => r.id === resourceId);
+        
+        // Only the creator can delete their own resource
+        if (!resource || (resource.createdBy !== userId && resource.createdBy !== 'system')) {
+          return false;
+        }
+        
+        set({
+          subjects: state.subjects.map((s) =>
+            s.id === subjectId
+              ? {
+                  ...s,
+                  units: s.units.map((u) =>
+                    u.id === unitId
+                      ? {
+                          ...u,
+                          modules: u.modules.map((m) =>
+                            m.id === moduleId
+                              ? { ...m, resources: m.resources.filter((r) => r.id !== resourceId) }
+                              : m
+                          ),
+                        }
+                      : u
+                  ),
+                }
+              : s
+          ),
+        });
+        return true;
+      },
       
       toggleModuleComplete: (subjectId, unitId, moduleId) => set((state) => {
         const newSubjects = state.subjects.map((s) =>
@@ -169,65 +306,14 @@ export const useSyllabusStore = create<SyllabusState>()(
         
         return { subjects: newSubjects };
       }),
-      
-      parseSyllabus: (text, regulation) => {
-        const lines = text.split('\n').filter((l) => l.trim());
-        const subjects: Subject[] = [];
-        let currentSubject: Subject | null = null;
-        let currentUnit: Unit | null = null;
-        
-        lines.forEach((line) => {
-          const trimmed = line.trim();
-          
-          // Check for subject (starts with subject code pattern)
-          if (/^[A-Z]{2,4}\d{3}/.test(trimmed)) {
-            if (currentSubject) {
-              if (currentUnit) currentSubject.units.push(currentUnit);
-              subjects.push(currentSubject);
-            }
-            currentSubject = {
-              id: crypto.randomUUID(),
-              code: trimmed.split(/[\s:]/)[0],
-              name: trimmed.replace(/^[A-Z]{2,4}\d{3}[\s:]*/, '').trim(),
-              regulation,
-              units: [],
-            };
-            currentUnit = null;
-          }
-          // Check for unit
-          else if (/^unit\s*[\d:]/i.test(trimmed)) {
-            if (currentUnit && currentSubject) {
-              currentSubject.units.push(currentUnit);
-            }
-            currentUnit = {
-              id: crypto.randomUUID(),
-              name: trimmed,
-              modules: [],
-              pdfUnlocked: false,
-            };
-          }
-          // Everything else is a topic/module
-          else if (currentUnit && trimmed.length > 3) {
-            currentUnit.modules.push({
-              id: crypto.randomUUID(),
-              name: `Module ${currentUnit.modules.length + 1}: ${trimmed}`,
-              topics: [trimmed],
-              completed: false,
-              resources: [],
-            });
-          }
+
+      getSubjectsByBranchAndRegulation: (branch, regulation) => {
+        const state = get();
+        return state.subjects.filter((s) => {
+          const branchMatch = s.branch === branch;
+          const regulationMatch = !regulation || s.regulation === regulation;
+          return branchMatch && regulationMatch;
         });
-        
-        // Add remaining items
-        if (currentSubject) {
-          if (currentUnit) currentSubject.units.push(currentUnit);
-          subjects.push(currentSubject);
-        }
-        
-        // Add parsed subjects to store
-        subjects.forEach((s) => get().addSubject(s));
-        
-        return subjects;
       },
     }),
     { name: 'syllabus-store' }

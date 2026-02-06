@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSyllabusStore, Resource } from '@/store/syllabusStore';
+import { useRegulationsStore } from '@/store/regulationsStore';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -38,17 +39,11 @@ const resourceTypes = [
   { value: 'pyq', label: 'Previous Year Questions', icon: History, color: 'text-purple-500' },
 ];
 
-const regulations = [
-  'R22 (2022-2026)',
-  'R21 (2021-2025)',
-  'R20 (2020-2024)',
-  'R19 (2019-2023)',
-];
-
 const ModulePage = () => {
   const { id: subjectId, unitId, moduleId } = useParams();
   const { isFaculty, user } = useAuth();
   const { subjects, addResource, toggleModuleComplete } = useSyllabusStore();
+  const { regulations } = useRegulationsStore();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newResourceType, setNewResourceType] = useState<Resource['type']>('youtube');
@@ -76,7 +71,7 @@ const ModulePage = () => {
   }
 
   const handleAddResource = () => {
-    if (newResourceTitle.trim()) {
+    if (newResourceTitle.trim() && user) {
       addResource(subject.id, unit.id, module.id, {
         id: crypto.randomUUID(),
         type: newResourceType,
@@ -84,6 +79,7 @@ const ModulePage = () => {
         url: newResourceUrl || undefined,
         content: newResourceContent || undefined,
         regulation: newResourceRegulation,
+        createdBy: user.id,
       });
       setNewResourceTitle('');
       setNewResourceUrl('');
@@ -156,10 +152,8 @@ const ModulePage = () => {
         {/* Topics */}
         {module.topics.length > 0 && (
           <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="text-lg">Topics Covered</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
+              <h3 className="text-lg font-semibold mb-3">Topics Covered</h3>
               <div className="flex flex-wrap gap-2">
                 {module.topics.map((topic, index) => (
                   <Badge key={index} variant="secondary">

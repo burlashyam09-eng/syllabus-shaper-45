@@ -7,8 +7,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  branch?: string; // For faculty
-  regulation?: string; // For student
+  branch: string; // Both faculty and students have branch
+  regulation?: string; // For students
 }
 
 interface AuthContextType {
