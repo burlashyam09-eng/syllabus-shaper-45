@@ -378,25 +378,32 @@ const ModulePage = () => {
                     </div>
                   ) : (
                     filteredResources.map((resource) => (
-                      <Card key={resource.id} className="group">
+                      <Card 
+                        key={resource.id} 
+                        className={`group ${resource.url ? 'cursor-pointer hover:shadow-md hover:border-primary/50 transition-all' : ''}`}
+                        onClick={() => {
+                          if (resource.url) {
+                            window.open(resource.url, '_blank', 'noopener,noreferrer');
+                          }
+                        }}
+                      >
                         <CardContent className="flex items-center gap-4 p-4">
                           <rt.icon className={`w-6 h-6 ${rt.color} shrink-0`} />
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-foreground truncate">{resource.title}</h4>
+                            <h4 className="font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                              {resource.title}
+                            </h4>
                             {resource.content && (
                               <p className="text-sm text-muted-foreground line-clamp-2">{resource.content}</p>
                             )}
-                          </div>
-                          <div className="flex items-center gap-2">
                             {resource.url && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => window.open(resource.url!, '_blank')}
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </Button>
+                              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                <ExternalLink className="w-3 h-3" />
+                                Click to open
+                              </p>
                             )}
+                          </div>
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             {canEditResource(resource.created_by) && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
