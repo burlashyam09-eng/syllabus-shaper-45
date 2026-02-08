@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBranches, useRegulations, useCreateRegulation } from '@/hooks/useBranchesAndRegulations';
+import { useBranches, useRegulations, useCreateRegulation, useUpdateRegulation, useDeleteRegulation } from '@/hooks/useBranchesAndRegulations';
 import { useSubjects, useCreateSubject, useUpdateSubject, useDeleteSubject } from '@/hooks/useSubjects';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,6 +57,8 @@ const Dashboard = () => {
   const { data: branches = [] } = useBranches();
   const { data: regulations = [], isLoading: regulationsLoading } = useRegulations();
   const createRegulation = useCreateRegulation();
+  const updateRegulation = useUpdateRegulation();
+  const deleteRegulation = useDeleteRegulation();
 
   // Selected regulation for filtering (faculty) or auto-set (student)
   const [selectedRegulation, setSelectedRegulation] = useState<string>('all');
@@ -74,6 +76,9 @@ const Dashboard = () => {
   const [isRegulationDialogOpen, setIsRegulationDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isEditRegulationDialogOpen, setIsEditRegulationDialogOpen] = useState(false);
+  const [deleteRegulationDialogOpen, setDeleteRegulationDialogOpen] = useState(false);
+  const [selectedRegulationForAction, setSelectedRegulationForAction] = useState<string | null>(null);
   const [selectedSubjectForAction, setSelectedSubjectForAction] = useState<string | null>(null);
 
   // Form states
@@ -83,6 +88,7 @@ const Dashboard = () => {
   const [newRegulationName, setNewRegulationName] = useState('');
   const [editSubjectName, setEditSubjectName] = useState('');
   const [editSubjectCode, setEditSubjectCode] = useState('');
+  const [editRegulationName, setEditRegulationName] = useState('');
 
   const branchName = branches.find(b => b.id === profile?.branch_id)?.name || 'Unknown Branch';
   const regulationName = regulations.find(r => r.id === profile?.regulation_id)?.name;
@@ -143,6 +149,35 @@ const Dashboard = () => {
 
   const canEditSubject = (subject: typeof subjects[0]) => {
     return isFaculty && subject.created_by === user?.id;
+  };
+
+  const canEditRegulation = (regulation: typeof regulations[0]) => {
+    return isFaculty && regulation.created_by === user?.id;
+  };
+
+  const openEditRegulationDialog = (regulation: typeof regulations[0]) => {
+    setSelectedRegulationForAction(regulation.id);
+    setEditRegulationName(regulation.name);
+    setIsEditRegulationDialogOpen(true);
+  };
+
+  const handleEditRegulation = async () => {
+    if (selectedRegulationForAction && editRegulationName.trim()) {
+      await updateRegulation.mutateAsync({
+        id: selectedRegulationForAction,
+        name: editRegulationName,
+      });
+      setIsEditRegulationDialogOpen(false);
+      setSelectedRegulationForAction(null);
+    }
+  };
+
+  const handleDeleteRegulation = async () => {
+    if (selectedRegulationForAction) {
+      await deleteRegulation.mutateAsync(selectedRegulationForAction);
+      setDeleteRegulationDialogOpen(false);
+      setSelectedRegulationForAction(null);
+    }
   };
 
   return (
@@ -292,6 +327,43 @@ const Dashboard = () => {
           </div>
         )}
 
+        {/* Regulations Management Section - Faculty Only */}
+        {isFaculty && regulations.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Your Regulations</h2>
+            <div className="flex flex-wrap gap-2">
+              {regulations.filter(reg => canEditRegulation(reg)).map((reg) => (
+                <Badge key={reg.id} variant="secondary" className="flex items-center gap-2 py-2 px-3">
+                  {reg.name}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 p-0">
+                        <MoreVertical className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEditRegulationDialog(reg)}>
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          setSelectedRegulationForAction(reg.id);
+                          setDeleteRegulationDialogOpen(true);
+                        }}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Subjects Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {subjectsLoading ? (
@@ -405,7 +477,7 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {/* Delete Subject Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -418,6 +490,52 @@ const Dashboard = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDeleteSubject}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Regulation Dialog */}
+      <Dialog open={isEditRegulationDialogOpen} onOpenChange={setIsEditRegulationDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Regulation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Regulation Name</Label>
+              <Input
+                value={editRegulationName}
+                onChange={(e) => setEditRegulationName(e.target.value)}
+              />
+            </div>
+            <Button 
+              onClick={handleEditRegulation} 
+              className="w-full"
+              disabled={updateRegulation.isPending}
+            >
+              {updateRegulation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Regulation Confirmation */}
+      <AlertDialog open={deleteRegulationDialogOpen} onOpenChange={setDeleteRegulationDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Regulation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this regulation. All subjects using this regulation will need to be reassigned.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteRegulation}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete

@@ -73,6 +73,28 @@ export function useCreateRegulation() {
   });
 }
 
+export function useUpdateRegulation() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase
+        .from('regulations')
+        .update({ name })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['regulations'] });
+      toast.success('Regulation updated successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to update regulation: ' + error.message);
+    },
+  });
+}
+
 export function useDeleteRegulation() {
   const queryClient = useQueryClient();
   
