@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSyllabusStore, Resource } from '@/store/syllabusStore';
-import { useRegulationsStore } from '@/store/regulationsStore';
+import { useModuleWithResources, useCreateResource, useUpdateResource, useDeleteResource, useUploadFile, useToggleModuleComplete, useStudentProgress } from '@/hooks/useResources';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -14,50 +15,99 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ArrowLeft,
   Plus,
   Youtube,
   FileText,
-  Calculator,
+  BookOpen,
   HelpCircle,
   History,
   ExternalLink,
-  CheckCircle2,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Upload,
 } from 'lucide-react';
+import { toast } from 'sonner';
+
+type ResourceType = 'youtube' | 'notes' | 'formula' | 'important-questions' | 'pyq';
 
 const resourceTypes = [
-  { value: 'youtube', label: 'YouTube Video', icon: Youtube, color: 'text-red-500' },
-  { value: 'notes', label: 'Notes', icon: FileText, color: 'text-blue-500' },
-  { value: 'formula', label: 'Formula Sheet', icon: Calculator, color: 'text-green-500' },
-  { value: 'important-questions', label: 'Important Questions', icon: HelpCircle, color: 'text-orange-500' },
-  { value: 'pyq', label: 'Previous Year Questions', icon: History, color: 'text-purple-500' },
+  { type: 'youtube' as ResourceType, label: 'YouTube Videos', icon: Youtube, color: 'text-red-500' },
+  { type: 'notes' as ResourceType, label: 'Notes', icon: FileText, color: 'text-blue-500' },
+  { type: 'formula' as ResourceType, label: 'Formulas', icon: BookOpen, color: 'text-green-500' },
+  { type: 'important-questions' as ResourceType, label: 'Important Questions', icon: HelpCircle, color: 'text-amber-500' },
+  { type: 'pyq' as ResourceType, label: 'Previous Year Questions', icon: History, color: 'text-purple-500' },
 ];
 
 const ModulePage = () => {
   const { id: subjectId, unitId, moduleId } = useParams();
   const { isFaculty, user } = useAuth();
-  const { subjects, addResource, toggleModuleComplete } = useSyllabusStore();
-  const { regulations } = useRegulationsStore();
+  const { data: moduleData, isLoading } = useModuleWithResources(moduleId);
+  const { data: progress } = useStudentProgress(moduleId);
+  const createResource = useCreateResource();
+  const updateResource = useUpdateResource();
+  const deleteResource = useDeleteResource();
+  const uploadFile = useUploadFile();
+  const toggleComplete = useToggleModuleComplete();
 
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newResourceType, setNewResourceType] = useState<Resource['type']>('youtube');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [activeTab, setActiveTab] = useState<ResourceType>('youtube');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
+  
   const [newResourceTitle, setNewResourceTitle] = useState('');
   const [newResourceUrl, setNewResourceUrl] = useState('');
   const [newResourceContent, setNewResourceContent] = useState('');
-  const [newResourceRegulation, setNewResourceRegulation] = useState(regulations[0]);
-  const [activeTab, setActiveTab] = useState('youtube');
+  const [editResourceTitle, setEditResourceTitle] = useState('');
+  const [editResourceUrl, setEditResourceUrl] = useState('');
+  const [editResourceContent, setEditResourceContent] = useState('');
+  const [uploadingFile, setUploadingFile] = useState(false);
 
-  const subject = subjects.find((s) => s.id === subjectId);
-  const unit = subject?.units.find((u) => u.id === unitId);
-  const module = unit?.modules.find((m) => m.id === moduleId);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur">
+          <div className="container mx-auto px-4 py-4">
+            <Skeleton className="h-10 w-64" />
+          </div>
+        </header>
+        <main className="container mx-auto px-4 py-8">
+          <Skeleton className="h-12 w-full mb-4" />
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
 
-  if (!subject || !unit || !module) {
+  if (!moduleData) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -70,79 +120,126 @@ const ModulePage = () => {
     );
   }
 
-  const handleAddResource = () => {
-    if (newResourceTitle.trim() && user) {
-      addResource(subject.id, unit.id, module.id, {
-        id: crypto.randomUUID(),
-        type: newResourceType,
-        title: newResourceTitle,
-        url: newResourceUrl || undefined,
-        content: newResourceContent || undefined,
-        regulation: newResourceRegulation,
-        createdBy: user.id,
+  const subject = moduleData.units?.subjects;
+  const unit = moduleData.units;
+  const resources = moduleData.resources || [];
+  const canAddResources = isFaculty;
+  const canEditResource = (createdBy: string) => isFaculty && createdBy === user?.id;
+  const isCompleted = progress?.completed || false;
+
+  const handleAddResource = async () => {
+    if (!moduleId || !newResourceTitle.trim()) return;
+
+    await createResource.mutateAsync({
+      moduleId,
+      type: activeTab,
+      title: newResourceTitle,
+      url: newResourceUrl || undefined,
+      content: newResourceContent || undefined,
+    });
+
+    setNewResourceTitle('');
+    setNewResourceUrl('');
+    setNewResourceContent('');
+    setIsAddDialogOpen(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !moduleId) return;
+
+    if (file.type !== 'application/pdf') {
+      toast.error('Only PDF files are allowed');
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      const path = `${moduleId}/${Date.now()}_${file.name}`;
+      const publicUrl = await uploadFile.mutateAsync({ file, path });
+      
+      await createResource.mutateAsync({
+        moduleId,
+        type: activeTab,
+        title: file.name.replace('.pdf', ''),
+        url: publicUrl,
       });
-      setNewResourceTitle('');
-      setNewResourceUrl('');
-      setNewResourceContent('');
-      setIsAddOpen(false);
+
+      toast.success('File uploaded successfully');
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleToggleComplete = () => {
-    toggleModuleComplete(subject.id, unit.id, module.id);
+  const openEditDialog = (resource: typeof resources[0]) => {
+    setSelectedResourceId(resource.id);
+    setEditResourceTitle(resource.title);
+    setEditResourceUrl(resource.url || '');
+    setEditResourceContent(resource.content || '');
+    setIsEditDialogOpen(true);
   };
 
-  const getResourcesByType = (type: Resource['type']) => {
-    return module.resources.filter((r) => {
-      // Show all for faculty, filter by regulation for students
-      const regulationMatch = isFaculty || r.regulation === user?.regulation;
-      return r.type === type && regulationMatch;
+  const handleEditResource = async () => {
+    if (!selectedResourceId || !editResourceTitle.trim()) return;
+
+    await updateResource.mutateAsync({
+      id: selectedResourceId,
+      title: editResourceTitle,
+      url: editResourceUrl || undefined,
+      content: editResourceContent || undefined,
     });
+
+    setIsEditDialogOpen(false);
+    setSelectedResourceId(null);
   };
 
-  const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
-    const resourceType = resourceTypes.find((r) => r.value === type);
-    if (!resourceType) return null;
-    const IconComponent = resourceType.icon;
-    return <IconComponent className={`w-5 h-5 ${resourceType.color}`} />;
+  const handleDeleteResource = async () => {
+    if (!selectedResourceId) return;
+    
+    await deleteResource.mutateAsync(selectedResourceId);
+    setDeleteDialogOpen(false);
+    setSelectedResourceId(null);
   };
+
+  const handleToggleComplete = async () => {
+    if (!moduleId) return;
+    await toggleComplete.mutateAsync({ moduleId, completed: !isCompleted });
+  };
+
+  const isPdfType = activeTab === 'notes' || activeTab === 'important-questions' || activeTab === 'pyq';
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Link to={`/subject/${subject.id}`}>
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                <span>{subject.name}</span>
-                <span>•</span>
-                <span>{unit.name}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link to={`/subject/${subjectId}`}>
+                <Button variant="ghost" size="icon">
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+              </Link>
+              <div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{subject?.code}</Badge>
+                  <Badge variant="outline" className="text-xs">{unit?.name}</Badge>
+                </div>
+                <h1 className="text-2xl font-bold text-foreground">{moduleData.name}</h1>
               </div>
-              <h1 className="text-2xl font-bold text-foreground">{module.name}</h1>
             </div>
-            <div className="flex items-center gap-3">
-              {module.completed && (
-                <Badge className="bg-success text-success-foreground gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  Completed
-                </Badge>
-              )}
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="complete"
-                  checked={module.completed}
-                  onCheckedChange={handleToggleComplete}
-                />
-                <Label htmlFor="complete" className="text-sm cursor-pointer">
-                  Mark as complete
-                </Label>
-              </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="complete"
+                checked={isCompleted}
+                onCheckedChange={handleToggleComplete}
+              />
+              <Label htmlFor="complete" className="cursor-pointer">
+                Mark as Complete
+              </Label>
             </div>
           </div>
         </div>
@@ -150,15 +247,15 @@ const ModulePage = () => {
 
       <main className="container mx-auto px-4 py-8">
         {/* Topics */}
-        {module.topics.length > 0 && (
-          <Card className="mb-8">
-            <CardContent className="pt-6">
-              <h3 className="text-lg font-semibold mb-3">Topics Covered</h3>
+        {moduleData.topics && moduleData.topics.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Topics Covered</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="flex flex-wrap gap-2">
-                {module.topics.map((topic, index) => (
-                  <Badge key={index} variant="secondary">
-                    {topic}
-                  </Badge>
+                {moduleData.topics.map((topic, index) => (
+                  <Badge key={index} variant="secondary">{topic}</Badge>
                 ))}
               </div>
             </CardContent>
@@ -166,164 +263,237 @@ const ModulePage = () => {
         )}
 
         {/* Resources Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex items-center justify-between mb-6">
-            <TabsList className="grid grid-cols-5 w-auto">
-              {resourceTypes.map((type) => {
-                const count = getResourcesByType(type.value as Resource['type']).length;
-                return (
-                  <TabsTrigger key={type.value} value={type.value} className="gap-2">
-                    <type.icon className={`w-4 h-4 ${type.color}`} />
-                    <span className="hidden sm:inline">{type.label}</span>
-                    {count > 0 && (
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        {count}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ResourceType)}>
+          <TabsList className="w-full justify-start overflow-x-auto">
+            {resourceTypes.map((rt) => (
+              <TabsTrigger key={rt.type} value={rt.type} className="gap-2">
+                <rt.icon className={`w-4 h-4 ${rt.color}`} />
+                <span className="hidden sm:inline">{rt.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-            {/* Add Resource Button - Faculty Only */}
-            {isFaculty && (
-              <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Add More +
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Resource</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Resource Type</Label>
-                      <Select value={newResourceType} onValueChange={(v) => setNewResourceType(v as Resource['type'])}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {resourceTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              <div className="flex items-center gap-2">
-                                <type.icon className={`w-4 h-4 ${type.color}`} />
-                                {type.label}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Regulation</Label>
-                      <Select value={newResourceRegulation} onValueChange={setNewResourceRegulation}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {regulations.map((r) => (
-                            <SelectItem key={r} value={r}>{r}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Title</Label>
-                      <Input
-                        placeholder="e.g., Arrays Tutorial - Complete Guide"
-                        value={newResourceTitle}
-                        onChange={(e) => setNewResourceTitle(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>URL (optional)</Label>
-                      <Input
-                        placeholder="https://..."
-                        value={newResourceUrl}
-                        onChange={(e) => setNewResourceUrl(e.target.value)}
-                      />
-                    </div>
-
-                    {(newResourceType === 'notes' || newResourceType === 'formula') && (
-                      <div className="space-y-2">
-                        <Label>Content (optional)</Label>
-                        <Textarea
-                          placeholder="Add notes or formulas here..."
-                          value={newResourceContent}
-                          onChange={(e) => setNewResourceContent(e.target.value)}
-                          className="min-h-[100px]"
-                        />
-                      </div>
-                    )}
-
-                    <Button onClick={handleAddResource} className="w-full">
-                      Add Resource
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-
-          {resourceTypes.map((type) => (
-            <TabsContent key={type.value} value={type.value}>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {getResourcesByType(type.value as Resource['type']).map((resource) => (
-                  <Card key={resource.id} className="group hover:shadow-md transition-all">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <ResourceIcon type={resource.type} />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-foreground truncate">{resource.title}</h4>
-                          <Badge variant="outline" className="text-xs mt-1">
-                            {resource.regulation}
-                          </Badge>
-                          {resource.content && (
-                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                              {resource.content}
-                            </p>
+          {resourceTypes.map((rt) => {
+            const filteredResources = resources.filter((r) => r.type === rt.type);
+            
+            return (
+              <TabsContent key={rt.type} value={rt.type} className="mt-6">
+                {/* Add Resource Button - Faculty Only */}
+                {canAddResources && (
+                  <div className="flex gap-2 mb-4">
+                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="gap-2">
+                          <Plus className="w-4 h-4" />
+                          Add {rt.label}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add {rt.label}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Title</Label>
+                            <Input
+                              placeholder="Enter title"
+                              value={newResourceTitle}
+                              onChange={(e) => setNewResourceTitle(e.target.value)}
+                            />
+                          </div>
+                          {rt.type === 'youtube' && (
+                            <div className="space-y-2">
+                              <Label>YouTube URL</Label>
+                              <Input
+                                placeholder="https://youtube.com/watch?v=..."
+                                value={newResourceUrl}
+                                onChange={(e) => setNewResourceUrl(e.target.value)}
+                              />
+                            </div>
                           )}
-                          {resource.url && (
-                            <a
-                              href={resource.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-sm text-primary hover:underline mt-2"
-                            >
-                              Open Resource
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
+                          {rt.type === 'formula' && (
+                            <div className="space-y-2">
+                              <Label>Formula Content</Label>
+                              <Textarea
+                                placeholder="Enter formula or equation"
+                                value={newResourceContent}
+                                onChange={(e) => setNewResourceContent(e.target.value)}
+                                rows={4}
+                              />
+                            </div>
                           )}
+                          {isPdfType && rt.type !== 'formula' && (
+                            <div className="space-y-2">
+                              <Label>PDF URL (optional)</Label>
+                              <Input
+                                placeholder="https://..."
+                                value={newResourceUrl}
+                                onChange={(e) => setNewResourceUrl(e.target.value)}
+                              />
+                            </div>
+                          )}
+                          <Button 
+                            onClick={handleAddResource} 
+                            className="w-full"
+                            disabled={createResource.isPending}
+                          >
+                            {createResource.isPending ? 'Adding...' : 'Add Resource'}
+                          </Button>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </DialogContent>
+                    </Dialog>
 
-                {getResourcesByType(type.value as Resource['type']).length === 0 && (
-                  <div className="col-span-full text-center py-12">
-                    <type.icon className={`w-12 h-12 mx-auto mb-4 ${type.color} opacity-50`} />
-                    <h3 className="text-lg font-medium text-foreground mb-1">
-                      No {type.label.toLowerCase()} yet
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {isFaculty
-                        ? `Click "Add More +" to add ${type.label.toLowerCase()}.`
-                        : `${type.label} will appear here once added.`}
-                    </p>
+                    {isPdfType && (
+                      <>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="application/pdf"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                        />
+                        <Button 
+                          variant="outline" 
+                          className="gap-2"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingFile}
+                        >
+                          <Upload className="w-4 h-4" />
+                          {uploadingFile ? 'Uploading...' : 'Upload PDF'}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
-              </div>
-            </TabsContent>
-          ))}
+
+                {/* Resources List */}
+                <div className="space-y-3">
+                  {filteredResources.length === 0 ? (
+                    <div className="text-center py-12">
+                      <rt.icon className={`w-12 h-12 mx-auto ${rt.color} opacity-50 mb-4`} />
+                      <h3 className="text-lg font-semibold text-foreground mb-2">No {rt.label} yet</h3>
+                      <p className="text-muted-foreground">
+                        {canAddResources ? `Add your first ${rt.label.toLowerCase()}.` : `${rt.label} will appear here once added.`}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredResources.map((resource) => (
+                      <Card key={resource.id} className="group">
+                        <CardContent className="flex items-center gap-4 p-4">
+                          <rt.icon className={`w-6 h-6 ${rt.color} shrink-0`} />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-foreground truncate">{resource.title}</h4>
+                            {resource.content && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">{resource.content}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {resource.url && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => window.open(resource.url!, '_blank')}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            )}
+                            {canEditResource(resource.created_by) && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openEditDialog(resource)}>
+                                    <Pencil className="w-4 h-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                      setSelectedResourceId(resource.id);
+                                      setDeleteDialogOpen(true);
+                                    }}
+                                    className="text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+            );
+          })}
         </Tabs>
       </main>
+
+      {/* Edit Resource Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Resource</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input
+                value={editResourceTitle}
+                onChange={(e) => setEditResourceTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>URL</Label>
+              <Input
+                value={editResourceUrl}
+                onChange={(e) => setEditResourceUrl(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Content</Label>
+              <Textarea
+                value={editResourceContent}
+                onChange={(e) => setEditResourceContent(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <Button 
+              onClick={handleEditResource} 
+              className="w-full"
+              disabled={updateResource.isPending}
+            >
+              {updateResource.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Resource?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this resource. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteResource}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -1,177 +1,248 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
-import { useRegulationsStore } from '@/store/regulationsStore';
+import { useBranches, useRegulations } from '@/hooks/useBranchesAndRegulations';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { GraduationCap, Users } from 'lucide-react';
-
-const branches = [
-  'Computer Science',
-  'Electronics & Communication',
-  'Mechanical Engineering',
-  'Civil Engineering',
-  'Electrical Engineering',
-  'Information Technology',
-];
+import { toast } from 'sonner';
 
 const Login = () => {
-  const [role, setRole] = useState<UserRole | null>(null);
+  const navigate = useNavigate();
+  const { signIn, signUp } = useAuth();
+  const { data: branches = [], isLoading: branchesLoading } = useBranches();
+  const { data: regulations = [], isLoading: regulationsLoading } = useRegulations();
+
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [branch, setBranch] = useState('');
-  const [regulation, setRegulation] = useState('');
-  const { login } = useAuth();
-  const { regulations } = useRegulationsStore();
-  const navigate = useNavigate();
+  const [name, setName] = useState('');
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState('');
+  const [selectedRegulation, setSelectedRegulation] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const user = {
-      id: crypto.randomUUID(),
-      name: email.split('@')[0],
-      email,
-      role: role!,
-      branch, // Both faculty and students have branch
-      ...(role === 'student' && { regulation }),
-    };
-    
-    login(user);
-    navigate('/dashboard');
+  const handleLogin = async () => {
+    if (!email || !password) {
+      toast.error('Please enter email and password');
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await signIn(email, password);
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Welcome back!');
+      navigate('/dashboard');
+    }
   };
 
-  if (!role) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-foreground mb-2">EduLearn</h1>
-            <p className="text-muted-foreground">Your structured learning companion</p>
-          </div>
-          
-          <div className="space-y-4">
-            <Card 
-              className="cursor-pointer transition-all hover:shadow-lg hover:border-faculty group"
-              onClick={() => setRole('faculty')}
-            >
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="w-14 h-14 rounded-full bg-faculty/10 flex items-center justify-center group-hover:bg-faculty group-hover:text-faculty-foreground transition-colors">
-                  <Users className="w-7 h-7 text-faculty group-hover:text-faculty-foreground" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-foreground">Faculty Login</h3>
-                  <p className="text-sm text-muted-foreground">Manage courses and add resources</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card 
-              className="cursor-pointer transition-all hover:shadow-lg hover:border-student group"
-              onClick={() => setRole('student')}
-            >
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="w-14 h-14 rounded-full bg-student/10 flex items-center justify-center group-hover:bg-student group-hover:text-student-foreground transition-colors">
-                  <GraduationCap className="w-7 h-7 text-student group-hover:text-student-foreground" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-foreground">Student Login</h3>
-                  <p className="text-sm text-muted-foreground">Access courses and track progress</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+  const handleSignup = async () => {
+    if (!email || !password || !name || !selectedRole || !selectedBranch) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (selectedRole === 'student' && !selectedRegulation) {
+      toast.error('Students must select a regulation');
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await signUp(
+      email,
+      password,
+      name,
+      selectedRole,
+      selectedBranch,
+      selectedRole === 'student' ? selectedRegulation : undefined
     );
-  }
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Account created! Please check your email to verify.');
+    }
+  };
+
+  const RoleSelector = () => (
+    <div className="grid grid-cols-2 gap-4 mb-6">
+      <Card
+        className={`cursor-pointer transition-all hover:shadow-lg ${
+          selectedRole === 'faculty' ? 'ring-2 ring-primary bg-primary/5' : ''
+        }`}
+        onClick={() => setSelectedRole('faculty')}
+      >
+        <CardContent className="flex flex-col items-center justify-center p-6">
+          <Users className="w-12 h-12 text-primary mb-2" />
+          <h3 className="font-semibold">Faculty</h3>
+          <p className="text-xs text-muted-foreground text-center">
+            Add & manage content
+          </p>
+        </CardContent>
+      </Card>
+      <Card
+        className={`cursor-pointer transition-all hover:shadow-lg ${
+          selectedRole === 'student' ? 'ring-2 ring-primary bg-primary/5' : ''
+        }`}
+        onClick={() => setSelectedRole('student')}
+      >
+        <CardContent className="flex flex-col items-center justify-center p-6">
+          <GraduationCap className="w-12 h-12 text-primary mb-2" />
+          <h3 className="font-semibold">Student</h3>
+          <p className="text-xs text-muted-foreground text-center">
+            View & learn content
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-            role === 'faculty' ? 'bg-faculty text-faculty-foreground' : 'bg-student text-student-foreground'
-          }`}>
-            {role === 'faculty' ? <Users className="w-8 h-8" /> : <GraduationCap className="w-8 h-8" />}
+          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+            <GraduationCap className="w-8 h-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">{role === 'faculty' ? 'Faculty' : 'Student'} Login</CardTitle>
-          <CardDescription>Enter your credentials to continue</CardDescription>
+          <CardTitle className="text-2xl">EduLearn Platform</CardTitle>
+          <CardDescription>Your academic learning companion</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            
-            {/* Branch selection for both faculty and students */}
-            <div className="space-y-2">
-              <Label>Select Branch</Label>
-              <Select value={branch} onValueChange={setBranch} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose your branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map((b) => (
-                    <SelectItem key={b} value={b}>{b}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <Tabs value={isLogin ? 'login' : 'signup'} onValueChange={(v) => setIsLogin(v === 'login')}>
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            </TabsList>
 
-            {/* Regulation selection only for students */}
-            {role === 'student' && (
+            <TabsContent value="login" className="space-y-4">
               <div className="space-y-2">
-                <Label>Academic Regulation</Label>
-                <Select value={regulation} onValueChange={setRegulation} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your regulation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {regulations.map((r) => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </div>
-            )}
-            
-            <Button type="submit" className="w-full" size="lg">
-              Sign In
-            </Button>
-            
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() => setRole(null)}
-            >
-              ← Back to role selection
-            </Button>
-          </form>
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <Button className="w-full" onClick={handleLogin} disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="signup" className="space-y-4">
+              <RoleSelector />
+
+              {selectedRole && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Full Name</Label>
+                    <Input
+                      placeholder="Your full name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Password</Label>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Branch</Label>
+                    <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branchesLoading ? (
+                          <SelectItem value="loading" disabled>Loading...</SelectItem>
+                        ) : (
+                          branches.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {branch.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedRole === 'student' && (
+                    <div className="space-y-2">
+                      <Label>Academic Regulation</Label>
+                      <Select value={selectedRegulation} onValueChange={setSelectedRegulation}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your regulation" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {regulationsLoading ? (
+                            <SelectItem value="loading" disabled>Loading...</SelectItem>
+                          ) : regulations.length === 0 ? (
+                            <SelectItem value="none" disabled>No regulations available</SelectItem>
+                          ) : (
+                            regulations.map((reg) => (
+                              <SelectItem key={reg.id} value={reg.id}>
+                                {reg.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {regulations.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          No regulations yet. A faculty member needs to create one first.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <Button className="w-full" onClick={handleSignup} disabled={loading}>
+                    {loading ? 'Creating account...' : 'Create Account'}
+                  </Button>
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

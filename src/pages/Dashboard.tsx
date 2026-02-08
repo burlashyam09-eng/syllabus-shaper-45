@@ -1,140 +1,192 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSyllabusStore, Subject } from '@/store/syllabusStore';
-import { useRegulationsStore } from '@/store/regulationsStore';
+import { useBranches, useRegulations, useCreateRegulation } from '@/hooks/useBranchesAndRegulations';
+import { useSubjects, useCreateSubject, useUpdateSubject, useDeleteSubject } from '@/hooks/useSubjects';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   BookOpen,
   Plus,
   LogOut,
-  ChevronRight,
   GraduationCap,
   Users,
-  Settings,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Filter,
 } from 'lucide-react';
 
 const Dashboard = () => {
-  const { user, logout, isFaculty } = useAuth();
-  const navigate = useNavigate();
-  const { subjects, addSubject } = useSyllabusStore();
-  const { regulations, addRegulation } = useRegulationsStore();
+  const { profile, role, signOut, isFaculty, user } = useAuth();
+  const { data: branches = [] } = useBranches();
+  const { data: regulations = [], isLoading: regulationsLoading } = useRegulations();
+  const createRegulation = useCreateRegulation();
+
+  // Selected regulation for filtering (faculty) or auto-set (student)
+  const [selectedRegulation, setSelectedRegulation] = useState<string>('all');
+  const filterRegulation = isFaculty 
+    ? (selectedRegulation === 'all' ? undefined : selectedRegulation)
+    : profile?.regulation_id || undefined;
+
+  const { data: subjects = [], isLoading: subjectsLoading } = useSubjects(filterRegulation);
+  const createSubject = useCreateSubject();
+  const updateSubject = useUpdateSubject();
+  const deleteSubject = useDeleteSubject();
+
+  // Dialog states
+  const [isSubjectDialogOpen, setIsSubjectDialogOpen] = useState(false);
+  const [isRegulationDialogOpen, setIsRegulationDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedSubjectForAction, setSelectedSubjectForAction] = useState<string | null>(null);
+
+  // Form states
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectCode, setNewSubjectCode] = useState('');
-  const [selectedRegulation, setSelectedRegulation] = useState(regulations[0]);
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isRegulationOpen, setIsRegulationOpen] = useState(false);
-  const [newRegulation, setNewRegulation] = useState('');
+  const [newSubjectRegulation, setNewSubjectRegulation] = useState('');
+  const [newRegulationName, setNewRegulationName] = useState('');
+  const [editSubjectName, setEditSubjectName] = useState('');
+  const [editSubjectCode, setEditSubjectCode] = useState('');
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
+  const branchName = branches.find(b => b.id === profile?.branch_id)?.name || 'Unknown Branch';
+  const regulationName = regulations.find(r => r.id === profile?.regulation_id)?.name;
 
-  // Filter subjects by branch (for both) and regulation (for students)
-  const filteredSubjects = subjects.filter((s) => {
-    const branchMatch = s.branch === user?.branch;
-    const regulationMatch = isFaculty || s.regulation === user?.regulation;
-    return branchMatch && regulationMatch;
-  });
-
-  const calculateProgress = (subject: Subject) => {
-    const totalModules = subject.units.reduce((acc, u) => acc + u.modules.length, 0);
-    const completedModules = subject.units.reduce(
-      (acc, u) => acc + u.modules.filter((m) => m.completed).length,
-      0
-    );
-    return totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
-  };
-
-  const handleAddSubject = () => {
-    if (newSubjectName && newSubjectCode && user) {
-      addSubject({
-        id: crypto.randomUUID(),
+  const handleAddSubject = async () => {
+    if (newSubjectName.trim() && newSubjectCode.trim() && newSubjectRegulation) {
+      await createSubject.mutateAsync({
         name: newSubjectName,
         code: newSubjectCode,
-        regulation: selectedRegulation,
-        branch: user.branch, // Subject belongs to faculty's branch
-        createdBy: user.id,
-        units: [],
+        regulationId: newSubjectRegulation,
       });
       setNewSubjectName('');
       setNewSubjectCode('');
-      setIsAddOpen(false);
+      setNewSubjectRegulation('');
+      setIsSubjectDialogOpen(false);
     }
   };
 
-  const handleAddRegulation = () => {
-    if (newRegulation.trim()) {
-      addRegulation(newRegulation.trim());
-      setNewRegulation('');
-      setIsRegulationOpen(false);
+  const handleAddRegulation = async () => {
+    if (newRegulationName.trim()) {
+      await createRegulation.mutateAsync(newRegulationName);
+      setNewRegulationName('');
+      setIsRegulationDialogOpen(false);
     }
+  };
+
+  const handleEditSubject = async () => {
+    if (selectedSubjectForAction && editSubjectName.trim() && editSubjectCode.trim()) {
+      await updateSubject.mutateAsync({
+        id: selectedSubjectForAction,
+        name: editSubjectName,
+        code: editSubjectCode,
+      });
+      setIsEditDialogOpen(false);
+      setSelectedSubjectForAction(null);
+    }
+  };
+
+  const handleDeleteSubject = async () => {
+    if (selectedSubjectForAction) {
+      await deleteSubject.mutateAsync(selectedSubjectForAction);
+      setDeleteDialogOpen(false);
+      setSelectedSubjectForAction(null);
+    }
+  };
+
+  const openEditDialog = (subject: typeof subjects[0]) => {
+    setSelectedSubjectForAction(subject.id);
+    setEditSubjectName(subject.name);
+    setEditSubjectCode(subject.code);
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (subjectId: string) => {
+    setSelectedSubjectForAction(subjectId);
+    setDeleteDialogOpen(true);
+  };
+
+  const canEditSubject = (subject: typeof subjects[0]) => {
+    return isFaculty && subject.created_by === user?.id;
   };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <BookOpen className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">EduLearn</h1>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                isFaculty ? 'bg-faculty text-faculty-foreground' : 'bg-student text-student-foreground'
-              }`}>
-                {isFaculty ? <Users className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                <GraduationCap className="w-6 h-6 text-primary" />
               </div>
-              <div className="text-sm">
-                <p className="font-medium text-foreground">{user?.name}</p>
-                <p className="text-muted-foreground text-xs">
-                  {user?.branch} {user?.regulation && `• ${user.regulation}`}
-                </p>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">EduLearn</h1>
+                <p className="text-xs text-muted-foreground">{branchName}</p>
               </div>
             </div>
-            
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
-              <LogOut className="w-5 h-5" />
-            </Button>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm font-medium text-foreground">{profile?.name || 'User'}</p>
+                <div className="flex items-center gap-1 justify-end">
+                  <Badge variant={isFaculty ? 'default' : 'secondary'} className="text-xs">
+                    {isFaculty ? <Users className="w-3 h-3 mr-1" /> : <GraduationCap className="w-3 h-3 mr-1" />}
+                    {role}
+                  </Badge>
+                  {regulationName && (
+                    <Badge variant="outline" className="text-xs">{regulationName}</Badge>
+                  )}
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={signOut}>
+                <LogOut className="w-5 h-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back, {user?.name}! 👋
-          </h2>
-          <p className="text-muted-foreground">
-            {isFaculty
-              ? `Managing courses for ${user?.branch}. Add subjects for different regulations.`
-              : 'Continue your learning journey and track your progress.'}
-          </p>
-        </div>
-
-        {/* Action Buttons - Only for Faculty */}
+        {/* Faculty Actions */}
         {isFaculty && (
-          <div className="flex flex-wrap gap-4 mb-8">
-            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+          <div className="flex flex-wrap gap-3 mb-8">
+            {/* Add Subject */}
+            <Dialog open={isSubjectDialogOpen} onOpenChange={setIsSubjectDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
                   <Plus className="w-4 h-4" />
@@ -144,142 +196,235 @@ const Dashboard = () => {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add New Subject</DialogTitle>
-                  <DialogDescription>
-                    Create a new subject for your branch. Select the regulation it belongs to.
-                  </DialogDescription>
+                  <DialogDescription>Create a new subject for your branch</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Subject Code</Label>
-                    <Input
-                      placeholder="e.g., CS301"
-                      value={newSubjectCode}
-                      onChange={(e) => setNewSubjectCode(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
                     <Label>Subject Name</Label>
                     <Input
-                      placeholder="e.g., Operating Systems"
+                      placeholder="e.g., Data Structures"
                       value={newSubjectName}
                       onChange={(e) => setNewSubjectName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label>Subject Code</Label>
+                    <Input
+                      placeholder="e.g., CS201"
+                      value={newSubjectCode}
+                      onChange={(e) => setNewSubjectCode(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label>Regulation</Label>
-                    <Select value={selectedRegulation} onValueChange={setSelectedRegulation}>
+                    <Select value={newSubjectRegulation} onValueChange={setNewSubjectRegulation}>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Select regulation" />
                       </SelectTrigger>
                       <SelectContent>
-                        {regulations.map((r) => (
-                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                        {regulations.map((reg) => (
+                          <SelectItem key={reg.id} value={reg.id}>
+                            {reg.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button onClick={handleAddSubject} className="w-full">
-                    Add Subject
+                  <Button 
+                    onClick={handleAddSubject} 
+                    className="w-full"
+                    disabled={createSubject.isPending}
+                  >
+                    {createSubject.isPending ? 'Creating...' : 'Add Subject'}
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
 
-            <Dialog open={isRegulationOpen} onOpenChange={setIsRegulationOpen}>
+            {/* Add Regulation */}
+            <Dialog open={isRegulationDialogOpen} onOpenChange={setIsRegulationDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2">
-                  <Settings className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
                   Add Regulation
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add New Regulation</DialogTitle>
-                  <DialogDescription>
-                    Add a new academic regulation for upcoming batches.
-                  </DialogDescription>
+                  <DialogDescription>Create a new academic regulation</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Regulation Name</Label>
                     <Input
                       placeholder="e.g., R23 (2023-2027)"
-                      value={newRegulation}
-                      onChange={(e) => setNewRegulation(e.target.value)}
+                      value={newRegulationName}
+                      onChange={(e) => setNewRegulationName(e.target.value)}
                     />
                   </div>
-                  <Button onClick={handleAddRegulation} className="w-full">
-                    Add Regulation
+                  <Button 
+                    onClick={handleAddRegulation} 
+                    className="w-full"
+                    disabled={createRegulation.isPending}
+                  >
+                    {createRegulation.isPending ? 'Creating...' : 'Add Regulation'}
                   </Button>
-                  
-                  <div className="pt-4 border-t">
-                    <Label className="text-sm text-muted-foreground">Current Regulations</Label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {regulations.map((r) => (
-                        <Badge key={r} variant="secondary">{r}</Badge>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* Filter by Regulation */}
+            <Select value={selectedRegulation} onValueChange={setSelectedRegulation}>
+              <SelectTrigger className="w-48">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filter by regulation" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Regulations</SelectItem>
+                {regulations.map((reg) => (
+                  <SelectItem key={reg.id} value={reg.id}>
+                    {reg.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
         {/* Subjects Grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredSubjects.map((subject) => {
-            const progress = calculateProgress(subject);
-            return (
-              <Link key={subject.id} to={`/subject/${subject.id}`}>
-                <Card className="group cursor-pointer transition-all hover:shadow-lg hover:border-primary/50">
-                  <CardHeader>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {subjectsLoading ? (
+            Array(3).fill(0).map((_, i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-2 w-full" />
+                </CardContent>
+              </Card>
+            ))
+          ) : subjects.length === 0 ? (
+            <div className="col-span-full text-center py-16">
+              <BookOpen className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-xl font-semibold text-foreground mb-2">No subjects yet</h3>
+              <p className="text-muted-foreground">
+                {isFaculty 
+                  ? 'Start by adding your first subject.' 
+                  : 'Subjects will appear here once faculty adds them.'}
+              </p>
+            </div>
+          ) : (
+            subjects.map((subject) => {
+              const regulation = regulations.find(r => r.id === subject.regulation_id);
+              
+              return (
+                <Card key={subject.id} className="group hover:shadow-lg transition-all">
+                  <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <Badge variant="secondary" className="mb-2">
-                        {subject.code}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {subject.regulation}
-                      </Badge>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="secondary">{subject.code}</Badge>
+                          {regulation && (
+                            <Badge variant="outline" className="text-xs">{regulation.name}</Badge>
+                          )}
+                        </div>
+                        <CardTitle className="text-lg">{subject.name}</CardTitle>
+                      </div>
+                      {canEditSubject(subject) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(subject)}>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => openDeleteDialog(subject.id)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
-                    <CardTitle className="text-xl group-hover:text-primary transition-colors">
-                      {subject.name}
-                    </CardTitle>
-                    <CardDescription>
-                      {subject.units.length} units • {subject.units.reduce((acc, u) => acc + u.modules.length, 0)} modules
-                    </CardDescription>
+                    <CardDescription>Click to view units and modules</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Progress</span>
-                        <span className="font-medium text-foreground">{progress}%</span>
-                      </div>
-                      <Progress value={progress} className="h-2" />
-                    </div>
-                    <div className="mt-4 flex items-center text-sm text-primary font-medium">
-                      Continue Learning
-                      <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                    </div>
+                    <Link to={`/subject/${subject.id}`}>
+                      <Button variant="outline" className="w-full">
+                        <BookOpen className="w-4 h-4 mr-2" />
+                        View Subject
+                      </Button>
+                    </Link>
                   </CardContent>
                 </Card>
-              </Link>
-            );
-          })}
+              );
+            })
+          )}
         </div>
-
-        {filteredSubjects.length === 0 && (
-          <div className="text-center py-16">
-            <BookOpen className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="text-xl font-semibold text-foreground mb-2">No subjects found</h3>
-            <p className="text-muted-foreground">
-              {isFaculty
-                ? `Add a subject to get started for ${user?.branch}.`
-                : `No courses available for ${user?.branch} - ${user?.regulation} yet.`}
-            </p>
-          </div>
-        )}
       </main>
+
+      {/* Edit Subject Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Subject</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Subject Name</Label>
+              <Input
+                value={editSubjectName}
+                onChange={(e) => setEditSubjectName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Subject Code</Label>
+              <Input
+                value={editSubjectCode}
+                onChange={(e) => setEditSubjectCode(e.target.value)}
+              />
+            </div>
+            <Button 
+              onClick={handleEditSubject} 
+              className="w-full"
+              disabled={updateSubject.isPending}
+            >
+              {updateSubject.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Subject?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this subject and all its units, modules, and resources. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteSubject}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
