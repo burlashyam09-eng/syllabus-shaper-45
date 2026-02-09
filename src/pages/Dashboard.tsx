@@ -51,6 +51,7 @@ import {
   Trash2,
   Filter,
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const Dashboard = () => {
   const { profile, role, signOut, isFaculty, user } = useAuth();
@@ -184,19 +185,19 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <GraduationCap className="w-6 h-6 text-primary" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">EduLearn</h1>
-                <p className="text-xs text-muted-foreground">{branchName}</p>
+                <h1 className="text-lg sm:text-xl font-bold text-foreground">EduLearn</h1>
+                <p className="text-xs text-muted-foreground hidden sm:block">{branchName}</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium text-foreground">{profile?.name || 'User'}</p>
                 <div className="flex items-center gap-1 justify-end">
                   <Badge variant={isFaculty ? 'default' : 'secondary'} className="text-xs">
@@ -208,6 +209,7 @@ const Dashboard = () => {
                   )}
                 </div>
               </div>
+              <ThemeToggle />
               <Button variant="ghost" size="icon" onClick={signOut}>
                 <LogOut className="w-5 h-5" />
               </Button>
@@ -219,7 +221,7 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Faculty Actions */}
         {isFaculty && (
-          <div className="flex flex-wrap gap-3 mb-8">
+          <div className="flex flex-wrap gap-2 sm:gap-3 mb-6 sm:mb-8">
             {/* Add Subject */}
             <Dialog open={isSubjectDialogOpen} onOpenChange={setIsSubjectDialogOpen}>
               <DialogTrigger asChild>

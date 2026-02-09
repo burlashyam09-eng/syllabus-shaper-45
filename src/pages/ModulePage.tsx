@@ -35,6 +35,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   ArrowLeft,
   Plus,
   Youtube,
@@ -50,12 +57,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type ResourceType = 'youtube' | 'notes' | 'formula' | 'important-questions' | 'pyq';
+type ResourceType = 'youtube' | 'notes' | 'important-questions' | 'pyq';
 
 const resourceTypes = [
   { type: 'youtube' as ResourceType, label: 'YouTube Videos', icon: Youtube, color: 'text-red-500' },
   { type: 'notes' as ResourceType, label: 'Notes', icon: FileText, color: 'text-blue-500' },
-  { type: 'formula' as ResourceType, label: 'Formulas', icon: BookOpen, color: 'text-green-500' },
   { type: 'important-questions' as ResourceType, label: 'Important Questions', icon: HelpCircle, color: 'text-amber-500' },
   { type: 'pyq' as ResourceType, label: 'Previous Year Questions', icon: History, color: 'text-purple-500' },
 ];
@@ -82,9 +88,11 @@ const ModulePage = () => {
   const [newResourceTitle, setNewResourceTitle] = useState('');
   const [newResourceUrl, setNewResourceUrl] = useState('');
   const [newResourceContent, setNewResourceContent] = useState('');
+  const [newResourceLanguage, setNewResourceLanguage] = useState('english');
   const [editResourceTitle, setEditResourceTitle] = useState('');
   const [editResourceUrl, setEditResourceUrl] = useState('');
   const [editResourceContent, setEditResourceContent] = useState('');
+  const [editResourceLanguage, setEditResourceLanguage] = useState('english');
   const [uploadingFile, setUploadingFile] = useState(false);
 
   if (isLoading) {
@@ -136,11 +144,13 @@ const ModulePage = () => {
       title: newResourceTitle,
       url: newResourceUrl || undefined,
       content: newResourceContent || undefined,
+      language: activeTab === 'youtube' ? newResourceLanguage : undefined,
     });
 
     setNewResourceTitle('');
     setNewResourceUrl('');
     setNewResourceContent('');
+    setNewResourceLanguage('english');
     setIsAddDialogOpen(false);
   };
 
@@ -217,35 +227,35 @@ const ModulePage = () => {
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Link to={`/subject/${subjectId}`}>
                 <Button variant="ghost" size="icon">
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
               </Link>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{subject?.code}</Badge>
-                  <Badge variant="outline" className="text-xs">{unit?.name}</Badge>
+                  <Badge variant="secondary" className="text-xs">{subject?.code}</Badge>
+                  <Badge variant="outline" className="text-xs hidden sm:inline-flex">{unit?.name}</Badge>
                 </div>
-                <h1 className="text-2xl font-bold text-foreground">{moduleData.name}</h1>
+                <h1 className="text-lg sm:text-2xl font-bold text-foreground truncate">{moduleData.name}</h1>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Checkbox
                 id="complete"
                 checked={isCompleted}
                 onCheckedChange={handleToggleComplete}
               />
-              <Label htmlFor="complete" className="cursor-pointer">
-                Mark as Complete
+              <Label htmlFor="complete" className="cursor-pointer text-xs sm:text-sm">
+                Complete
               </Label>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* Topics */}
         {moduleData.topics && moduleData.topics.length > 0 && (
           <Card className="mb-6">
@@ -302,27 +312,31 @@ const ModulePage = () => {
                             />
                           </div>
                           {rt.type === 'youtube' && (
-                            <div className="space-y-2">
-                              <Label>YouTube URL</Label>
-                              <Input
-                                placeholder="https://youtube.com/watch?v=..."
-                                value={newResourceUrl}
-                                onChange={(e) => setNewResourceUrl(e.target.value)}
-                              />
-                            </div>
+                            <>
+                              <div className="space-y-2">
+                                <Label>YouTube URL</Label>
+                                <Input
+                                  placeholder="https://youtube.com/watch?v=..."
+                                  value={newResourceUrl}
+                                  onChange={(e) => setNewResourceUrl(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Language</Label>
+                                <Select value={newResourceLanguage} onValueChange={setNewResourceLanguage}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select language" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="telugu">Telugu</SelectItem>
+                                    <SelectItem value="english">English</SelectItem>
+                                    <SelectItem value="hindi">Hindi</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </>
                           )}
-                          {rt.type === 'formula' && (
-                            <div className="space-y-2">
-                              <Label>Formula Content</Label>
-                              <Textarea
-                                placeholder="Enter formula or equation"
-                                value={newResourceContent}
-                                onChange={(e) => setNewResourceContent(e.target.value)}
-                                rows={4}
-                              />
-                            </div>
-                          )}
-                          {isPdfType && rt.type !== 'formula' && (
+                          {isPdfType && (
                             <div className="space-y-2">
                               <Label>PDF URL (optional)</Label>
                               <Input
@@ -395,9 +409,14 @@ const ModulePage = () => {
                                 <h4 className="font-medium text-foreground truncate group-hover:text-primary transition-colors hover:underline">
                                   {resource.title}
                                 </h4>
-                                {resource.content && (
-                                  <p className="text-sm text-muted-foreground line-clamp-2">{resource.content}</p>
-                                )}
+                                <div className="flex items-center gap-2 mt-1">
+                                  {resource.content && (
+                                    <p className="text-sm text-muted-foreground line-clamp-2">{resource.content}</p>
+                                  )}
+                                  {rt.type === 'youtube' && (resource as any).language && (
+                                    <Badge variant="outline" className="text-xs capitalize">{(resource as any).language}</Badge>
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                   <ExternalLink className="w-3 h-3" />
                                   Click to open

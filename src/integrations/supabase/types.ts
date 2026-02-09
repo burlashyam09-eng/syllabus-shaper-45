@@ -72,6 +72,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           branch_id: string | null
           created_at: string
           email: string
@@ -81,6 +82,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           branch_id?: string | null
           created_at?: string
           email: string
@@ -90,6 +92,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
           branch_id?: string | null
           created_at?: string
           email?: string
@@ -142,6 +145,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          language: string | null
           module_id: string
           title: string
           type: Database["public"]["Enums"]["resource_type"]
@@ -152,6 +156,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          language?: string | null
           module_id: string
           title: string
           type: Database["public"]["Enums"]["resource_type"]
@@ -162,6 +167,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          language?: string | null
           module_id?: string
           title?: string
           type?: Database["public"]["Enums"]["resource_type"]
