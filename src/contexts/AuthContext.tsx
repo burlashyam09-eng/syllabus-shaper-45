@@ -18,7 +18,7 @@ interface AuthContextType {
   role: UserRole | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, name: string, role: UserRole, branchId: string, regulationId?: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, name: string, role: UserRole, branchId: string, regulationId?: string) => Promise<{ error: Error | null; userId?: string }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isAuthenticated: boolean;
@@ -126,7 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (profileError) return { error: profileError };
 
-      return { error: null };
+      return { error: null, userId: data.user.id };
     } catch (error) {
       return { error: error as Error };
     }

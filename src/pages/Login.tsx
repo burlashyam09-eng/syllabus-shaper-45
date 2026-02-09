@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { useBranches, useRegulations } from '@/hooks/useBranchesAndRegulations';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,14 +15,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { GraduationCap, Users } from 'lucide-react';
+import { GraduationCap, Users, Camera } from 'lucide-react';
 import { toast } from 'sonner';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const Login = () => {
   const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
   const { data: branches = [], isLoading: branchesLoading } = useBranches();
   const { data: regulations = [], isLoading: regulationsLoading } = useRegulations();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -31,6 +34,19 @@ const Login = () => {
   const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedRegulation, setSelectedRegulation] = useState('');
   const [loading, setLoading] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -62,7 +78,7 @@ const Login = () => {
     }
 
     setLoading(true);
-    const { error } = await signUp(
+    const { error, userId } = await signUp(
       email,
       password,
       name,
@@ -70,47 +86,39 @@ const Login = () => {
       selectedBranch,
       selectedRole === 'student' ? selectedRegulation : undefined
     );
+
+    // Upload avatar if selected and signup succeeded
+    if (!error && userId && avatarFile && selectedRole === 'faculty') {
+      try {
+        const path = `avatars/${userId}/${Date.now()}_${avatarFile.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('resources')
+          .upload(path, avatarFile, { upsert: true });
+        
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('resources')
+            .getPublicUrl(path);
+          
+          await supabase
+            .from('profiles')
+            .update({ avatar_url: publicUrl })
+            .eq('id', userId);
+        }
+      } catch (e) {
+        console.error('Avatar upload failed:', e);
+      }
+    }
+
     setLoading(false);
 
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Account created! Please check your email to verify.');
+      toast.success('Account created successfully!');
+      navigate('/dashboard');
     }
   };
-
-  const RoleSelector = () => (
-    <div className="grid grid-cols-2 gap-4 mb-6">
-      <Card
-        className={`cursor-pointer transition-all hover:shadow-lg ${
-          selectedRole === 'faculty' ? 'ring-2 ring-primary bg-primary/5' : ''
-        }`}
-        onClick={() => setSelectedRole('faculty')}
-      >
-        <CardContent className="flex flex-col items-center justify-center p-6">
-          <Users className="w-12 h-12 text-primary mb-2" />
-          <h3 className="font-semibold">Faculty</h3>
-          <p className="text-xs text-muted-foreground text-center">
-            Add & manage content
-          </p>
-        </CardContent>
-      </Card>
-      <Card
-        className={`cursor-pointer transition-all hover:shadow-lg ${
-          selectedRole === 'student' ? 'ring-2 ring-primary bg-primary/5' : ''
-        }`}
-        onClick={() => setSelectedRole('student')}
-      >
-        <CardContent className="flex flex-col items-center justify-center p-6">
-          <GraduationCap className="w-12 h-12 text-primary mb-2" />
-          <h3 className="font-semibold">Student</h3>
-          <p className="text-xs text-muted-foreground text-center">
-            View & learn content
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center p-4">
@@ -154,10 +162,61 @@ const Login = () => {
             </TabsContent>
 
             <TabsContent value="signup" className="space-y-4">
-              <RoleSelector />
+              {/* Role Selector */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <Card
+                  className={`cursor-pointer transition-all hover:shadow-lg ${
+                    selectedRole === 'faculty' ? 'ring-2 ring-primary bg-primary/5' : ''
+                  }`}
+                  onClick={() => setSelectedRole('faculty')}
+                >
+                  <CardContent className="flex flex-col items-center justify-center p-4">
+                    <Users className="w-10 h-10 text-primary mb-2" />
+                    <h3 className="font-semibold text-sm">Faculty</h3>
+                    <p className="text-xs text-muted-foreground text-center">Add & manage</p>
+                  </CardContent>
+                </Card>
+                <Card
+                  className={`cursor-pointer transition-all hover:shadow-lg ${
+                    selectedRole === 'student' ? 'ring-2 ring-primary bg-primary/5' : ''
+                  }`}
+                  onClick={() => setSelectedRole('student')}
+                >
+                  <CardContent className="flex flex-col items-center justify-center p-4">
+                    <GraduationCap className="w-10 h-10 text-primary mb-2" />
+                    <h3 className="font-semibold text-sm">Student</h3>
+                    <p className="text-xs text-muted-foreground text-center">View & learn</p>
+                  </CardContent>
+                </Card>
+              </div>
 
               {selectedRole && (
                 <>
+                  {/* Faculty Avatar Upload */}
+                  {selectedRole === 'faculty' && (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="relative cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                        <Avatar className="w-20 h-20">
+                          <AvatarImage src={avatarPreview || ''} />
+                          <AvatarFallback className="bg-primary/10">
+                            <Camera className="w-8 h-8 text-muted-foreground" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="absolute bottom-0 right-0 bg-primary rounded-full p-1">
+                          <Camera className="w-3 h-3 text-primary-foreground" />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Add profile photo</p>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarSelect}
+                      />
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label>Full Name</Label>
                     <Input
@@ -228,11 +287,6 @@ const Login = () => {
                           )}
                         </SelectContent>
                       </Select>
-                      {regulations.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          No regulations yet. A faculty member needs to create one first.
-                        </p>
-                      )}
                     </div>
                   )}
 

@@ -46,25 +46,30 @@ export function useCreateResource() {
       title,
       url,
       content,
+      language,
     }: {
       moduleId: string;
       type: 'youtube' | 'notes' | 'formula' | 'important-questions' | 'pyq';
       title: string;
       url?: string;
       content?: string;
+      language?: string;
     }) => {
       if (!user) throw new Error('Not authenticated');
       
+      const insertData: Record<string, unknown> = {
+        module_id: moduleId,
+        type,
+        title,
+        url: url || null,
+        content: content || null,
+        created_by: user.id,
+      };
+      if (language) insertData.language = language;
+      
       const { data, error } = await supabase
         .from('resources')
-        .insert({
-          module_id: moduleId,
-          type,
-          title,
-          url: url || null,
-          content: content || null,
-          created_by: user.id,
-        })
+        .insert(insertData as any)
         .select()
         .single();
       

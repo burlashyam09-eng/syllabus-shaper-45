@@ -249,24 +249,26 @@ const SubjectPage = () => {
                       {unit.modules.length} modules • {unit.modules.filter((m) => m.completed).length} completed
                     </p>
                   </div>
-                  <div className="flex items-center gap-4 mr-4">
-                    <div className="w-32">
+                  <div className="flex items-center gap-2 sm:gap-4 mr-2 sm:mr-4">
+                    <div className="w-20 sm:w-32">
                       <Progress value={getUnitProgress(unit)} className="h-2" />
                     </div>
-                    <span className="text-sm font-medium text-foreground w-12">
+                    <span className="text-xs sm:text-sm font-medium text-foreground w-10 sm:w-12">
                       {getUnitProgress(unit)}%
                     </span>
-                    {unit.pdf_unlocked ? (
-                      <Badge className="bg-success text-success-foreground gap-1">
-                        <Unlock className="w-3 h-3" />
-                        PDF Ready
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="gap-1">
-                        <Lock className="w-3 h-3" />
-                        Complete to unlock
-                      </Badge>
-                    )}
+                    <div className="hidden sm:block">
+                      {unit.pdf_unlocked ? (
+                        <Badge className="bg-success text-success-foreground gap-1">
+                          <Unlock className="w-3 h-3" />
+                          PDF Ready
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="gap-1">
+                          <Lock className="w-3 h-3" />
+                          Complete to unlock
+                        </Badge>
+                      )}
+                    </div>
                     {canEdit && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
