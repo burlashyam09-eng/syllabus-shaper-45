@@ -18,6 +18,7 @@ import {
 import { GraduationCap, Users, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import collegeLogo from '@/assets/college-logo.png';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -121,7 +122,24 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex flex-col">
+      {/* College Header */}
+      <header className="w-full bg-card/80 backdrop-blur-sm border-b border-border/50 py-3 px-4">
+        <div className="max-w-4xl mx-auto flex items-center gap-4">
+          <img src={collegeLogo} alt="Sir C.R. Reddy College of Engineering Logo" className="w-14 h-14 md:w-16 md:h-16 object-contain rounded-full bg-white p-1 shadow-sm" />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-base md:text-lg font-bold text-foreground leading-tight tracking-tight">
+              Sir C.R. Reddy College of Engineering
+            </h1>
+            <p className="text-xs md:text-sm font-semibold text-primary">(Autonomous)</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground leading-tight mt-0.5">
+              Approved by AICTE | Affiliated to JNTUK | Accredited by NBA &amp; NAAC (A Grade)
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
@@ -132,9 +150,9 @@ const Login = () => {
         </CardHeader>
         <CardContent>
           <Tabs value={isLogin ? 'login' : 'signup'} onValueChange={(v) => setIsLogin(v === 'login')}>
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/60">
+              <TabsTrigger value="login" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground">Login</TabsTrigger>
+              <TabsTrigger value="signup" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground">Sign Up</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login" className="space-y-4">
@@ -299,6 +317,7 @@ const Login = () => {
           </Tabs>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
