@@ -59,28 +59,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    let initialSessionHandled = false;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // Use setTimeout to avoid potential race conditions
-        setTimeout(() => fetchProfile(session.user.id), 0);
+        // Await profile fetch before setting loading to false
+        await fetchProfile(session.user.id);
       } else {
         setProfile(null);
         setRole(null);
       }
-      setLoading(false);
+      
+      // Only set loading false from listener if initial session was already handled
+      // or if this is a sign-out/sign-in event
+      if (initialSessionHandled || !session?.user) {
+        setLoading(false);
+      }
     });
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        await fetchProfile(session.user.id);
       }
+      initialSessionHandled = true;
       setLoading(false);
     });
 

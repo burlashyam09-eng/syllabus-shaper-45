@@ -52,6 +52,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import collegeLogo from '@/assets/college-logo.png';
 
 const Dashboard = () => {
   const { profile, role, signOut, isFaculty, user } = useAuth();
@@ -186,6 +187,17 @@ const Dashboard = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          {/* College branding row */}
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <img src={collegeLogo} alt="Sir C.R. Reddy College of Engineering Logo" className="w-10 h-10 sm:w-12 sm:h-12 object-contain rounded-full bg-white p-0.5 shadow-sm" />
+            <div className="text-center">
+              <h2 className="text-sm sm:text-base font-bold text-foreground leading-tight tracking-tight">
+                Sir C.R. Reddy College of Engineering
+              </h2>
+              <p className="text-[10px] sm:text-xs text-primary font-semibold">(Autonomous)</p>
+            </div>
+          </div>
+          {/* Nav row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-lg flex items-center justify-center">
