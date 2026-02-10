@@ -54,6 +54,7 @@ import {
   Pencil,
   Trash2,
   Upload,
+  LogOut,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -68,7 +69,7 @@ const resourceTypes = [
 
 const ModulePage = () => {
   const { id: subjectId, unitId, moduleId } = useParams();
-  const { isFaculty, user } = useAuth();
+  const { isFaculty, user, signOut } = useAuth();
   const { data: moduleData, isLoading } = useModuleWithResources(moduleId);
   const { data: progress } = useStudentProgress(moduleId);
   const createResource = useCreateResource();
@@ -250,6 +251,9 @@ const ModulePage = () => {
               <Label htmlFor="complete" className="cursor-pointer text-xs sm:text-sm">
                 Complete
               </Label>
+              <Button variant="ghost" size="icon" onClick={signOut}>
+                <LogOut className="w-5 h-5" />
+              </Button>
             </div>
           </div>
         </div>
