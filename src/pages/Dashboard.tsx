@@ -222,8 +222,9 @@ const Dashboard = () => {
                 </div>
               </div>
               <ThemeToggle />
-              <Button variant="ghost" size="icon" onClick={signOut}>
-                <LogOut className="w-5 h-5" />
+              <Button variant="outline" size="sm" onClick={signOut} className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10">
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
