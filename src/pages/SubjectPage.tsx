@@ -51,11 +51,12 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  LogOut,
 } from 'lucide-react';
 
 const SubjectPage = () => {
   const { id } = useParams();
-  const { isFaculty, user } = useAuth();
+  const { isFaculty, user, signOut } = useAuth();
   const { data: subject, isLoading } = useSubject(id);
   const { data: regulations = [] } = useRegulations();
   const createUnit = useCreateUnit();
@@ -182,19 +183,24 @@ const SubjectPage = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Link to="/dashboard">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">{subject.code}</Badge>
-                {regulation && <Badge variant="outline" className="text-xs">{regulation.name}</Badge>}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link to="/dashboard">
+                <Button variant="ghost" size="icon">
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+              </Link>
+              <div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{subject.code}</Badge>
+                  {regulation && <Badge variant="outline" className="text-xs">{regulation.name}</Badge>}
+                </div>
+                <h1 className="text-2xl font-bold text-foreground">{subject.name}</h1>
               </div>
-              <h1 className="text-2xl font-bold text-foreground">{subject.name}</h1>
             </div>
+            <Button variant="ghost" size="icon" onClick={signOut}>
+              <LogOut className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </header>
