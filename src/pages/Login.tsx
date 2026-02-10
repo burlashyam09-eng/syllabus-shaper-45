@@ -125,7 +125,7 @@ const Login = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex flex-col">
       {/* College Header */}
       <header className="w-full bg-card/80 backdrop-blur-sm border-b border-border/50 py-3 px-4">
-        <div className="max-w-4xl mx-auto flex flex-col items-center gap-2 text-center">
+        <div className="flex items-center justify-center gap-3 text-center">
           <img src={collegeLogo} alt="Sir C.R. Reddy College of Engineering Logo" className="w-14 h-14 md:w-16 md:h-16 object-contain rounded-full bg-white p-1 shadow-sm" />
           <div>
             <h1 className="text-base md:text-lg font-bold text-foreground leading-tight tracking-tight">
