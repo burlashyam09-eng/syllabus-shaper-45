@@ -59,37 +59,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    let initialSessionHandled = false;
-
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        // Await profile fetch before setting loading to false
-        await fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-        setRole(null);
-      }
-      
-      // Only set loading false from listener if initial session was already handled
-      // or if this is a sign-out/sign-in event
-      if (initialSessionHandled || !session?.user) {
-        setLoading(false);
-      }
-    });
-
-    // THEN check for existing session
+    // First get the initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
         await fetchProfile(session.user.id);
       }
-      initialSessionHandled = true;
       setLoading(false);
+    });
+
+    // Then set up the listener for future changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        // Use setTimeout to avoid potential deadlock with Supabase auth
+        setTimeout(async () => {
+          await fetchProfile(session.user.id);
+          setLoading(false);
+        }, 0);
+      } else {
+        setProfile(null);
+        setRole(null);
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
