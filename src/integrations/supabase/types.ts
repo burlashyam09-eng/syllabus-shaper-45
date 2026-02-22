@@ -343,6 +343,47 @@ export type Database = {
           },
         ]
       }
+      update_requests: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          owner_id: string
+          requester_id: string
+          status: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          owner_id: string
+          requester_id: string
+          status?: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          owner_id?: string
+          requester_id?: string
+          status?: string
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "update_requests_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
