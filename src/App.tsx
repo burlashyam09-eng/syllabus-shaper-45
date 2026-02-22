@@ -9,6 +9,9 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import SubjectPage from "./pages/SubjectPage";
 import ModulePage from "./pages/ModulePage";
+import StudentDashboard from "./pages/StudentDashboard";
+import StudentSubjectPage from "./pages/StudentSubjectPage";
+import StudentModulePage from "./pages/StudentModulePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +68,10 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      {/* Student routes (no auth required) */}
+      <Route path="/student/dashboard" element={<StudentDashboard />} />
+      <Route path="/student/subject/:id" element={<StudentSubjectPage />} />
+      <Route path="/student/subject/:id/unit/:unitId/module/:moduleId" element={<StudentModulePage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

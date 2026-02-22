@@ -31,12 +31,17 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRole | 'student-browse' | null>(null);
   const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedRegulation, setSelectedRegulation] = useState('');
   const [loading, setLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  // Student browse flow state
+  const [studentStep, setStudentStep] = useState<1 | 2>(1);
+  const [studentBranch, setStudentBranch] = useState('');
+  const [studentRegulation, setStudentRegulation] = useState('');
 
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -68,13 +73,8 @@ const Login = () => {
   };
 
   const handleSignup = async () => {
-    if (!email || !password || !name || !selectedRole || !selectedBranch) {
+    if (!email || !password || !name || !selectedBranch) {
       toast.error('Please fill in all required fields');
-      return;
-    }
-
-    if (selectedRole === 'student' && !selectedRegulation) {
-      toast.error('Students must select a regulation');
       return;
     }
 
@@ -83,13 +83,12 @@ const Login = () => {
       email,
       password,
       name,
-      selectedRole,
+      'faculty',
       selectedBranch,
-      selectedRole === 'student' ? selectedRegulation : undefined
     );
 
     // Upload avatar if selected and signup succeeded
-    if (!error && userId && avatarFile && selectedRole === 'faculty') {
+    if (!error && userId && avatarFile) {
       try {
         const path = `avatars/${userId}/${Date.now()}_${avatarFile.name}`;
         const { error: uploadError } = await supabase.storage
@@ -121,6 +120,22 @@ const Login = () => {
     }
   };
 
+  const handleStudentBrowse = () => {
+    if (studentStep === 1) {
+      if (!studentBranch) {
+        toast.error('Please select a branch');
+        return;
+      }
+      setStudentStep(2);
+    } else {
+      if (!studentRegulation) {
+        toast.error('Please select a regulation');
+        return;
+      }
+      navigate(`/student/dashboard?branch=${studentBranch}&regulation=${studentRegulation}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex flex-col">
       {/* College Header */}
@@ -149,7 +164,7 @@ const Login = () => {
           <CardDescription>Your academic learning companion</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={isLogin ? 'login' : 'signup'} onValueChange={(v) => setIsLogin(v === 'login')}>
+          <Tabs value={isLogin ? 'login' : 'signup'} onValueChange={(v) => { setIsLogin(v === 'login'); setSelectedRole(null); }}>
             <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/60">
               <TabsTrigger value="login" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground">Login</TabsTrigger>
               <TabsTrigger value="signup" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground">Sign Up</TabsTrigger>
@@ -186,7 +201,7 @@ const Login = () => {
                   className={`cursor-pointer transition-all hover:shadow-lg ${
                     selectedRole === 'faculty' ? 'ring-2 ring-primary bg-primary/5' : ''
                   }`}
-                  onClick={() => setSelectedRole('faculty')}
+                  onClick={() => { setSelectedRole('faculty'); setStudentStep(1); }}
                 >
                   <CardContent className="flex flex-col items-center justify-center p-4">
                     <Users className="w-10 h-10 text-primary mb-2" />
@@ -196,9 +211,9 @@ const Login = () => {
                 </Card>
                 <Card
                   className={`cursor-pointer transition-all hover:shadow-lg ${
-                    selectedRole === 'student' ? 'ring-2 ring-primary bg-primary/5' : ''
+                    selectedRole === 'student-browse' ? 'ring-2 ring-primary bg-primary/5' : ''
                   }`}
-                  onClick={() => setSelectedRole('student')}
+                  onClick={() => { setSelectedRole('student-browse'); setStudentStep(1); setStudentBranch(''); setStudentRegulation(''); }}
                 >
                   <CardContent className="flex flex-col items-center justify-center p-4">
                     <GraduationCap className="w-10 h-10 text-primary mb-2" />
@@ -208,32 +223,91 @@ const Login = () => {
                 </Card>
               </div>
 
-              {selectedRole && (
-                <>
-                  {/* Faculty Avatar Upload */}
-                  {selectedRole === 'faculty' && (
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="relative cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                        <Avatar className="w-20 h-20">
-                          <AvatarImage src={avatarPreview || ''} />
-                          <AvatarFallback className="bg-primary/10">
-                            <Camera className="w-8 h-8 text-muted-foreground" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="absolute bottom-0 right-0 bg-primary rounded-full p-1">
-                          <Camera className="w-3 h-3 text-primary-foreground" />
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Add profile photo</p>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleAvatarSelect}
-                      />
+              {/* Student Browse Flow */}
+              {selectedRole === 'student-browse' && (
+                <div className="space-y-4">
+                  {studentStep === 1 && (
+                    <div className="space-y-2">
+                      <Label>Select Your Branch</Label>
+                      <Select value={studentBranch} onValueChange={setStudentBranch}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branchesLoading ? (
+                            <SelectItem value="loading" disabled>Loading...</SelectItem>
+                          ) : (
+                            branches.map((branch) => (
+                              <SelectItem key={branch.id} value={branch.id}>
+                                {branch.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
+                  {studentStep === 2 && (
+                    <div className="space-y-2">
+                      <Label>Select Your Regulation</Label>
+                      <Select value={studentRegulation} onValueChange={setStudentRegulation}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your regulation" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {regulationsLoading ? (
+                            <SelectItem value="loading" disabled>Loading...</SelectItem>
+                          ) : regulations.length === 0 ? (
+                            <SelectItem value="none" disabled>No regulations available</SelectItem>
+                          ) : (
+                            regulations.map((reg) => (
+                              <SelectItem key={reg.id} value={reg.id}>
+                                {reg.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    {studentStep === 2 && (
+                      <Button variant="outline" className="flex-1" onClick={() => setStudentStep(1)}>
+                        Back
+                      </Button>
+                    )}
+                    <Button className="flex-1" onClick={handleStudentBrowse}>
+                      {studentStep === 1 ? 'Next' : 'Browse Syllabus'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Faculty Signup */}
+              {selectedRole === 'faculty' && (
+                <>
+                  {/* Faculty Avatar Upload */}
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="relative cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                      <Avatar className="w-20 h-20">
+                        <AvatarImage src={avatarPreview || ''} />
+                        <AvatarFallback className="bg-primary/10">
+                          <Camera className="w-8 h-8 text-muted-foreground" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute bottom-0 right-0 bg-primary rounded-full p-1">
+                        <Camera className="w-3 h-3 text-primary-foreground" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Add profile photo</p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarSelect}
+                    />
+                  </div>
 
                   <div className="space-y-2">
                     <Label>Full Name</Label>
@@ -283,30 +357,6 @@ const Login = () => {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {selectedRole === 'student' && (
-                    <div className="space-y-2">
-                      <Label>Academic Regulation</Label>
-                      <Select value={selectedRegulation} onValueChange={setSelectedRegulation}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your regulation" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {regulationsLoading ? (
-                            <SelectItem value="loading" disabled>Loading...</SelectItem>
-                          ) : regulations.length === 0 ? (
-                            <SelectItem value="none" disabled>No regulations available</SelectItem>
-                          ) : (
-                            regulations.map((reg) => (
-                              <SelectItem key={reg.id} value={reg.id}>
-                                {reg.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
 
                   <Button className="w-full" onClick={handleSignup} disabled={loading}>
                     {loading ? 'Creating account...' : 'Create Account'}

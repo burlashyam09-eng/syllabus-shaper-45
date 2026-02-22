@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModuleWithResources, useCreateResource, useUpdateResource, useDeleteResource, useUploadFile, useToggleModuleComplete, useStudentProgress } from '@/hooks/useResources';
+import { useCustomCategories, useCreateCustomCategory, useUpdateCustomCategory, useDeleteCustomCategory } from '@/hooks/useCustomCategories';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,7 @@ import {
   Trash2,
   Upload,
   LogOut,
+  Tag,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -78,9 +80,16 @@ const ModulePage = () => {
   const uploadFile = useUploadFile();
   const toggleComplete = useToggleModuleComplete();
 
+  // Custom categories
+  const subjectIdForCategories = moduleData?.units?.subjects?.id;
+  const { data: customCategories = [] } = useCustomCategories(subjectIdForCategories);
+  const createCategory = useCreateCustomCategory();
+  const updateCategory = useUpdateCustomCategory();
+  const deleteCategory = useDeleteCustomCategory();
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeTab, setActiveTab] = useState<ResourceType>('youtube');
+  const [activeTab, setActiveTab] = useState<string>('youtube');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -95,6 +104,14 @@ const ModulePage = () => {
   const [editResourceContent, setEditResourceContent] = useState('');
   const [editResourceLanguage, setEditResourceLanguage] = useState('english');
   const [uploadingFile, setUploadingFile] = useState(false);
+
+  // Custom category dialog states
+  const [isAddFeatureDialogOpen, setIsAddFeatureDialogOpen] = useState(false);
+  const [isEditFeatureDialogOpen, setIsEditFeatureDialogOpen] = useState(false);
+  const [deleteFeatureDialogOpen, setDeleteFeatureDialogOpen] = useState(false);
+  const [newFeatureName, setNewFeatureName] = useState('');
+  const [editFeatureName, setEditFeatureName] = useState('');
+  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -136,17 +153,24 @@ const ModulePage = () => {
   const canEditResource = (createdBy: string) => isFaculty && createdBy === user?.id;
   const isCompleted = progress?.completed || false;
 
+  const isBuiltInTab = resourceTypes.some(rt => rt.type === activeTab);
+  const isCustomTab = !isBuiltInTab;
+  const activeBuiltInType = resourceTypes.find(rt => rt.type === activeTab);
+
   const handleAddResource = async () => {
     if (!moduleId || !newResourceTitle.trim()) return;
 
-    await createResource.mutateAsync({
+    const insertData: any = {
       moduleId,
-      type: activeTab,
+      type: isCustomTab ? ('notes' as const) : (activeTab as ResourceType),
       title: newResourceTitle,
       url: newResourceUrl || undefined,
       content: newResourceContent || undefined,
       language: activeTab === 'youtube' ? newResourceLanguage : undefined,
-    });
+      customCategoryId: isCustomTab ? activeTab : undefined,
+    };
+
+    await createResource.mutateAsync(insertData);
 
     setNewResourceTitle('');
     setNewResourceUrl('');
@@ -171,9 +195,10 @@ const ModulePage = () => {
       
       await createResource.mutateAsync({
         moduleId,
-        type: activeTab,
+        type: isCustomTab ? ('notes' as const) : (activeTab as ResourceType),
         title: file.name.replace('.pdf', ''),
         url: publicUrl,
+        customCategoryId: isCustomTab ? activeTab : undefined,
       });
 
       toast.success('File uploaded successfully');
@@ -220,7 +245,36 @@ const ModulePage = () => {
     await toggleComplete.mutateAsync({ moduleId, completed: !isCompleted });
   };
 
-  const isPdfType = activeTab === 'notes' || activeTab === 'important-questions' || activeTab === 'pyq';
+  const handleAddFeature = async () => {
+    if (!subjectIdForCategories || !newFeatureName.trim()) return;
+    await createCategory.mutateAsync({ subjectId: subjectIdForCategories, name: newFeatureName });
+    setNewFeatureName('');
+    setIsAddFeatureDialogOpen(false);
+  };
+
+  const handleEditFeature = async () => {
+    if (!selectedFeatureId || !editFeatureName.trim()) return;
+    await updateCategory.mutateAsync({ id: selectedFeatureId, name: editFeatureName });
+    setIsEditFeatureDialogOpen(false);
+    setSelectedFeatureId(null);
+  };
+
+  const handleDeleteFeature = async () => {
+    if (!selectedFeatureId) return;
+    await deleteCategory.mutateAsync(selectedFeatureId);
+    setDeleteFeatureDialogOpen(false);
+    setSelectedFeatureId(null);
+    // Switch to a built-in tab if we deleted the active custom tab
+    if (activeTab === selectedFeatureId) setActiveTab('youtube');
+  };
+
+  const isPdfType = activeTab === 'notes' || activeTab === 'important-questions' || activeTab === 'pyq' || isCustomTab;
+
+  const getActiveLabel = () => {
+    if (activeBuiltInType) return activeBuiltInType.label;
+    const cc = customCategories.find(c => c.id === activeTab);
+    return cc?.name || 'Resources';
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -251,8 +305,9 @@ const ModulePage = () => {
               <Label htmlFor="complete" className="cursor-pointer text-xs sm:text-sm">
                 Complete
               </Label>
-              <Button variant="ghost" size="icon" onClick={signOut}>
-                <LogOut className="w-5 h-5" />
+              <Button variant="outline" size="sm" onClick={signOut} className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10">
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
@@ -277,25 +332,88 @@ const ModulePage = () => {
         )}
 
         {/* Resources Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ResourceType)}>
-          <TabsList className="w-full justify-start overflow-x-auto">
-            {resourceTypes.map((rt) => (
-              <TabsTrigger key={rt.type} value={rt.type} className="gap-2">
-                <rt.icon className={`w-4 h-4 ${rt.color}`} />
-                <span className="hidden sm:inline">{rt.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="flex items-center gap-2 mb-2">
+            <TabsList className="flex-1 justify-start overflow-x-auto">
+              {resourceTypes.map((rt) => (
+                <TabsTrigger key={rt.type} value={rt.type} className="gap-2">
+                  <rt.icon className={`w-4 h-4 ${rt.color}`} />
+                  <span className="hidden sm:inline">{rt.label}</span>
+                </TabsTrigger>
+              ))}
+              {customCategories.map((cc) => (
+                <TabsTrigger key={cc.id} value={cc.id} className="gap-2 group/tab">
+                  <Tag className="w-4 h-4 text-green-500" />
+                  <span className="hidden sm:inline">{cc.name}</span>
+                  {isFaculty && cc.created_by === user?.id && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-5 w-5 p-0 ml-1">
+                          <MoreVertical className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFeatureId(cc.id);
+                          setEditFeatureName(cc.name);
+                          setIsEditFeatureDialogOpen(true);
+                        }}>
+                          <Pencil className="w-4 h-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFeatureId(cc.id);
+                          setDeleteFeatureDialogOpen(true);
+                        }}>
+                          <Trash2 className="w-4 h-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {/* Add Feature button - Faculty only */}
+            {isFaculty && subjectIdForCategories && (
+              <Dialog open={isAddFeatureDialogOpen} onOpenChange={setIsAddFeatureDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1 shrink-0">
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Add Feature</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Custom Feature</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Feature Name</Label>
+                      <Input
+                        placeholder="e.g., Lab Manuals, Assignments"
+                        value={newFeatureName}
+                        onChange={(e) => setNewFeatureName(e.target.value)}
+                      />
+                    </div>
+                    <Button onClick={handleAddFeature} className="w-full" disabled={createCategory.isPending}>
+                      {createCategory.isPending ? 'Adding...' : 'Add Feature'}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
 
+          {/* Built-in resource type tabs */}
           {resourceTypes.map((rt) => {
-            const filteredResources = resources.filter((r) => r.type === rt.type);
+            const filteredResources = resources.filter((r) => r.type === rt.type && !(r as any).custom_category_id);
             
             return (
               <TabsContent key={rt.type} value={rt.type} className="mt-6">
-                {/* Add Resource Button - Faculty Only */}
                 {canAddResources && (
                   <div className="flex gap-2 mb-4">
-                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                    <Dialog open={isAddDialogOpen && activeTab === rt.type} onOpenChange={setIsAddDialogOpen}>
                       <DialogTrigger asChild>
                         <Button className="gap-2">
                           <Plus className="w-4 h-4" />
@@ -340,7 +458,7 @@ const ModulePage = () => {
                               </div>
                             </>
                           )}
-                          {isPdfType && (
+                          {(rt.type === 'notes' || rt.type === 'important-questions' || rt.type === 'pyq') && (
                             <div className="space-y-2">
                               <Label>PDF URL (optional)</Label>
                               <Input
@@ -361,7 +479,7 @@ const ModulePage = () => {
                       </DialogContent>
                     </Dialog>
 
-                    {isPdfType && (
+                    {(rt.type === 'notes' || rt.type === 'important-questions' || rt.type === 'pyq') && (
                       <>
                         <input
                           ref={fileInputRef}
@@ -396,76 +514,115 @@ const ModulePage = () => {
                     </div>
                   ) : (
                     filteredResources.map((resource) => (
-                      <Card 
-                        key={resource.id} 
-                        className="group hover:shadow-md hover:border-primary/50 transition-all"
-                      >
-                        <CardContent className="flex items-center gap-4 p-4">
-                          <rt.icon className={`w-6 h-6 ${rt.color} shrink-0`} />
-                          <div className="flex-1 min-w-0">
-                            {resource.url ? (
-                              <a 
-                                href={resource.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block"
-                              >
-                                <h4 className="font-medium text-foreground truncate group-hover:text-primary transition-colors hover:underline">
-                                  {resource.title}
-                                </h4>
-                                <div className="flex items-center gap-2 mt-1">
-                                  {resource.content && (
-                                    <p className="text-sm text-muted-foreground line-clamp-2">{resource.content}</p>
-                                  )}
-                                  {rt.type === 'youtube' && (resource as any).language && (
-                                    <Badge variant="outline" className="text-xs capitalize">{(resource as any).language}</Badge>
-                                  )}
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                                  <ExternalLink className="w-3 h-3" />
-                                  Click to open
-                                </p>
-                              </a>
-                            ) : (
-                              <>
-                                <h4 className="font-medium text-foreground truncate">
-                                  {resource.title}
-                                </h4>
-                                {resource.content && (
-                                  <p className="text-sm text-muted-foreground line-clamp-2">{resource.content}</p>
-                                )}
-                              </>
-                            )}
+                      <ResourceCard
+                        key={resource.id}
+                        resource={resource}
+                        icon={rt.icon}
+                        color={rt.color}
+                        canEdit={canEditResource(resource.created_by)}
+                        onEdit={() => openEditDialog(resource)}
+                        onDelete={() => {
+                          setSelectedResourceId(resource.id);
+                          setDeleteDialogOpen(true);
+                        }}
+                        showLanguage={rt.type === 'youtube'}
+                      />
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+            );
+          })}
+
+          {/* Custom category tabs */}
+          {customCategories.map((cc) => {
+            const filteredResources = resources.filter((r: any) => r.custom_category_id === cc.id);
+            
+            return (
+              <TabsContent key={cc.id} value={cc.id} className="mt-6">
+                {canAddResources && (
+                  <div className="flex gap-2 mb-4">
+                    <Dialog open={isAddDialogOpen && activeTab === cc.id} onOpenChange={setIsAddDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="gap-2">
+                          <Plus className="w-4 h-4" />
+                          Add {cc.name}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add {cc.name}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Title</Label>
+                            <Input
+                              placeholder="Enter title"
+                              value={newResourceTitle}
+                              onChange={(e) => setNewResourceTitle(e.target.value)}
+                            />
                           </div>
-                          <div className="flex items-center gap-2">
-                            {canEditResource(resource.created_by) && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreVertical className="w-4 h-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => openEditDialog(resource)}>
-                                    <Pencil className="w-4 h-4 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    onClick={() => {
-                                      setSelectedResourceId(resource.id);
-                                      setDeleteDialogOpen(true);
-                                    }}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
+                          <div className="space-y-2">
+                            <Label>URL (optional)</Label>
+                            <Input
+                              placeholder="https://..."
+                              value={newResourceUrl}
+                              onChange={(e) => setNewResourceUrl(e.target.value)}
+                            />
                           </div>
-                        </CardContent>
-                      </Card>
+                          <Button 
+                            onClick={handleAddResource} 
+                            className="w-full"
+                            disabled={createResource.isPending}
+                          >
+                            {createResource.isPending ? 'Adding...' : 'Add Resource'}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                    <Button 
+                      variant="outline" 
+                      className="gap-2"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingFile}
+                    >
+                      <Upload className="w-4 h-4" />
+                      {uploadingFile ? 'Uploading...' : 'Upload PDF'}
+                    </Button>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {filteredResources.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Tag className="w-12 h-12 mx-auto text-green-500 opacity-50 mb-4" />
+                      <h3 className="text-lg font-semibold text-foreground mb-2">No {cc.name} yet</h3>
+                      <p className="text-muted-foreground">
+                        {canAddResources ? `Add your first ${cc.name.toLowerCase()}.` : `${cc.name} will appear here once added.`}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredResources.map((resource) => (
+                      <ResourceCard
+                        key={resource.id}
+                        resource={resource}
+                        icon={Tag}
+                        color="text-green-500"
+                        canEdit={canEditResource(resource.created_by)}
+                        onEdit={() => openEditDialog(resource)}
+                        onDelete={() => {
+                          setSelectedResourceId(resource.id);
+                          setDeleteDialogOpen(true);
+                        }}
+                      />
                     ))
                   )}
                 </div>
@@ -515,7 +672,7 @@ const ModulePage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {/* Delete Resource Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -535,8 +692,111 @@ const ModulePage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Feature Dialog */}
+      <Dialog open={isEditFeatureDialogOpen} onOpenChange={setIsEditFeatureDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Feature</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Feature Name</Label>
+              <Input
+                value={editFeatureName}
+                onChange={(e) => setEditFeatureName(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleEditFeature} className="w-full" disabled={updateCategory.isPending}>
+              {updateCategory.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Feature Confirmation */}
+      <AlertDialog open={deleteFeatureDialogOpen} onOpenChange={setDeleteFeatureDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Feature?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this feature and all its resources.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteFeature}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
+
+// Extracted resource card component
+function ResourceCard({ resource, icon: Icon, color, canEdit, onEdit, onDelete, showLanguage }: {
+  resource: any;
+  icon: React.ComponentType<any>;
+  color: string;
+  canEdit: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  showLanguage?: boolean;
+}) {
+  return (
+    <Card className="group hover:shadow-md hover:border-primary/50 transition-all">
+      <CardContent className="flex items-center gap-4 p-4">
+        <Icon className={`w-6 h-6 ${color} shrink-0`} />
+        <div className="flex-1 min-w-0">
+          {resource.url ? (
+            <a href={resource.url} target="_blank" rel="noopener noreferrer" className="block">
+              <h4 className="font-medium text-foreground truncate group-hover:text-primary transition-colors hover:underline">
+                {resource.title}
+              </h4>
+              <div className="flex items-center gap-2 mt-1">
+                {resource.content && <p className="text-sm text-muted-foreground line-clamp-2">{resource.content}</p>}
+                {showLanguage && resource.language && (
+                  <Badge variant="outline" className="text-xs capitalize">{resource.language}</Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                <ExternalLink className="w-3 h-3" /> Click to open
+              </p>
+            </a>
+          ) : (
+            <>
+              <h4 className="font-medium text-foreground truncate">{resource.title}</h4>
+              {resource.content && <p className="text-sm text-muted-foreground line-clamp-2">{resource.content}</p>}
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onEdit}>
+                  <Pencil className="w-4 h-4 mr-2" /> Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default ModulePage;
