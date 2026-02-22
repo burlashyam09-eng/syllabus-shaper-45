@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBranches, useRegulations, useCreateRegulation, useUpdateRegulation, useDeleteRegulation } from '@/hooks/useBranchesAndRegulations';
-import { useSubjects, useCreateSubject, useUpdateSubject, useDeleteSubject } from '@/hooks/useSubjects';
+import { useAllBranchSubjects, useSubjectCreators, useCreateSubject, useUpdateSubject, useDeleteSubject } from '@/hooks/useSubjects';
+import { useReceivedRequests, useSentRequests, useCreateUpdateRequest, useRespondToRequest } from '@/hooks/useUpdateRequests';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +42,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import {
   BookOpen,
   Plus,
@@ -50,6 +53,10 @@ import {
   Pencil,
   Trash2,
   Filter,
+  Send,
+  Bell,
+  Check,
+  X,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import collegeLogo from '@/assets/college-logo.png';
@@ -68,10 +75,23 @@ const Dashboard = () => {
     ? (selectedRegulation === 'all' ? undefined : selectedRegulation)
     : profile?.regulation_id || undefined;
 
-  const { data: subjects = [], isLoading: subjectsLoading } = useSubjects(filterRegulation);
+  // Faculty sees ALL subjects in branch; students see own branch subjects
+  const { data: allSubjects = [], isLoading: subjectsLoading } = useAllBranchSubjects(filterRegulation);
+  const subjects = allSubjects;
+  
+  // Get creator names for subjects
+  const creatorIds = subjects.map(s => s.created_by);
+  const { data: creatorNames = {} } = useSubjectCreators(creatorIds);
+  
   const createSubject = useCreateSubject();
   const updateSubject = useUpdateSubject();
   const deleteSubject = useDeleteSubject();
+  
+  // Update requests
+  const { data: receivedRequests = [] } = useReceivedRequests();
+  const { data: sentRequests = [] } = useSentRequests();
+  const createUpdateRequest = useCreateUpdateRequest();
+  const respondToRequest = useRespondToRequest();
 
   // Dialog states
   const [isSubjectDialogOpen, setIsSubjectDialogOpen] = useState(false);
@@ -82,6 +102,10 @@ const Dashboard = () => {
   const [deleteRegulationDialogOpen, setDeleteRegulationDialogOpen] = useState(false);
   const [selectedRegulationForAction, setSelectedRegulationForAction] = useState<string | null>(null);
   const [selectedSubjectForAction, setSelectedSubjectForAction] = useState<string | null>(null);
+  const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
+  const [requestSubject, setRequestSubject] = useState<typeof subjects[0] | null>(null);
+  const [requestMessage, setRequestMessage] = useState('');
+  const [showRequests, setShowRequests] = useState(false);
 
   // Form states
   const [newSubjectName, setNewSubjectName] = useState('');
@@ -97,15 +121,25 @@ const Dashboard = () => {
 
   const handleAddSubject = async () => {
     if (newSubjectName.trim() && newSubjectCode.trim() && newSubjectRegulation) {
-      await createSubject.mutateAsync({
-        name: newSubjectName,
-        code: newSubjectCode,
-        regulationId: newSubjectRegulation,
-      });
-      setNewSubjectName('');
-      setNewSubjectCode('');
-      setNewSubjectRegulation('');
-      setIsSubjectDialogOpen(false);
+      // Check for duplicate subject code
+      const existingSubject = subjects.find(s => s.code.toLowerCase() === newSubjectCode.trim().toLowerCase());
+      if (existingSubject) {
+        toast.error(`Subject code "${newSubjectCode}" already exists for "${existingSubject.name}". One code = one subject.`);
+        return;
+      }
+      try {
+        await createSubject.mutateAsync({
+          name: newSubjectName,
+          code: newSubjectCode,
+          regulationId: newSubjectRegulation,
+        });
+        setNewSubjectName('');
+        setNewSubjectCode('');
+        setNewSubjectRegulation('');
+        setIsSubjectDialogOpen(false);
+      } catch {
+        // Error already shown by mutation
+      }
     }
   };
 
@@ -151,6 +185,29 @@ const Dashboard = () => {
 
   const canEditSubject = (subject: typeof subjects[0]) => {
     return isFaculty && subject.created_by === user?.id;
+  };
+
+  const openRequestDialog = (subject: typeof subjects[0]) => {
+    setRequestSubject(subject);
+    setRequestMessage('');
+    setIsRequestDialogOpen(true);
+  };
+
+  const handleSendRequest = async () => {
+    if (requestSubject && requestMessage.trim()) {
+      await createUpdateRequest.mutateAsync({
+        subjectId: requestSubject.id,
+        ownerId: requestSubject.created_by,
+        message: requestMessage,
+      });
+      setIsRequestDialogOpen(false);
+      setRequestSubject(null);
+      setRequestMessage('');
+    }
+  };
+
+  const handleRespondToRequest = async (requestId: string, status: 'approved' | 'rejected') => {
+    await respondToRequest.mutateAsync({ id: requestId, status });
   };
 
   const canEditRegulation = (regulation: typeof regulations[0]) => {
@@ -222,6 +279,16 @@ const Dashboard = () => {
                 </div>
               </div>
               <ThemeToggle />
+              {isFaculty && (
+                <Button variant="outline" size="icon" className="relative" onClick={() => setShowRequests(!showRequests)}>
+                  <Bell className="w-4 h-4" />
+                  {receivedRequests.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] rounded-full flex items-center justify-center">
+                      {receivedRequests.length}
+                    </span>
+                  )}
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={signOut} className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10">
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
@@ -406,6 +473,8 @@ const Dashboard = () => {
           ) : (
             subjects.map((subject) => {
               const regulation = regulations.find(r => r.id === subject.regulation_id);
+              const isOwner = subject.created_by === user?.id;
+              const creatorName = creatorNames[subject.created_by] || 'Unknown';
               
               return (
                 <Card key={subject.id} className="group hover:shadow-lg transition-all">
@@ -419,8 +488,11 @@ const Dashboard = () => {
                           )}
                         </div>
                         <CardTitle className="text-lg">{subject.name}</CardTitle>
+                        {isFaculty && !isOwner && (
+                          <p className="text-xs text-muted-foreground mt-1">Created by: {creatorName}</p>
+                        )}
                       </div>
-                      {canEditSubject(subject) && (
+                      {canEditSubject(subject) ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -441,7 +513,12 @@ const Dashboard = () => {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      )}
+                      ) : isFaculty && !isOwner ? (
+                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => openRequestDialog(subject)}>
+                          <Send className="w-3 h-3" />
+                          <span className="hidden sm:inline">Request Update</span>
+                        </Button>
+                      ) : null}
                     </div>
                     <CardDescription>Click to view units and modules</CardDescription>
                   </CardHeader>
@@ -558,6 +635,82 @@ const Dashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Update Request Dialog */}
+      <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Update Request</DialogTitle>
+            <DialogDescription>
+              Request the owner of "{requestSubject?.name}" to make changes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea
+                placeholder="Describe what changes you'd like to suggest..."
+                value={requestMessage}
+                onChange={(e) => setRequestMessage(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <Button 
+              onClick={handleSendRequest} 
+              className="w-full"
+              disabled={createUpdateRequest.isPending || !requestMessage.trim()}
+            >
+              {createUpdateRequest.isPending ? 'Sending...' : 'Send Request'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Received Requests Panel */}
+      <Dialog open={showRequests} onOpenChange={setShowRequests}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Update Requests</DialogTitle>
+            <DialogDescription>
+              Requests from other faculty to update your subjects.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {receivedRequests.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No pending requests</p>
+            ) : (
+              receivedRequests.map((req) => {
+                const reqSubject = subjects.find(s => s.id === req.subject_id);
+                const requesterName = creatorNames[req.requester_id] || 'Unknown Faculty';
+                return (
+                  <Card key={req.id}>
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{requesterName}</p>
+                          <p className="text-xs text-muted-foreground">Subject: {reqSubject?.name || 'Unknown'}</p>
+                        </div>
+                        <Badge variant="outline">Pending</Badge>
+                      </div>
+                      <p className="text-sm text-foreground">{req.message}</p>
+                      <div className="flex gap-2">
+                        <Button size="sm" className="gap-1" onClick={() => handleRespondToRequest(req.id, 'approved')}>
+                          <Check className="w-3 h-3" />
+                          Approve
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1" onClick={() => handleRespondToRequest(req.id, 'rejected')}>
+                          <X className="w-3 h-3" />
+                          Reject
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
