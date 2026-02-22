@@ -46,6 +46,7 @@ export interface Resource {
 }
 
 // Fetch subjects for user's branch and optionally filter by regulation
+// If showAll is true (faculty view), fetch all subjects in the branch regardless of creator
 export function useSubjects(regulationId?: string) {
   const { profile } = useAuth();
   
@@ -69,6 +70,53 @@ export function useSubjects(regulationId?: string) {
       return data as Subject[];
     },
     enabled: !!profile?.branch_id,
+  });
+}
+
+// Fetch all subjects across all faculty in same branch (for faculty dashboard)
+export function useAllBranchSubjects(regulationId?: string) {
+  const { profile } = useAuth();
+  
+  return useQuery({
+    queryKey: ['all-subjects', profile?.branch_id, regulationId],
+    queryFn: async () => {
+      if (!profile?.branch_id) return [];
+      
+      let query = supabase
+        .from('subjects')
+        .select('*')
+        .eq('branch_id', profile.branch_id);
+      
+      if (regulationId) {
+        query = query.eq('regulation_id', regulationId);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as Subject[];
+    },
+    enabled: !!profile?.branch_id,
+  });
+}
+
+// Fetch creator names for subjects
+export function useSubjectCreators(creatorIds: string[]) {
+  return useQuery({
+    queryKey: ['subject-creators', creatorIds],
+    queryFn: async () => {
+      if (creatorIds.length === 0) return {};
+      const uniqueIds = [...new Set(creatorIds)];
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', uniqueIds);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      data?.forEach(p => { map[p.id] = p.name; });
+      return map;
+    },
+    enabled: creatorIds.length > 0,
   });
 }
 
