@@ -47,6 +47,7 @@ export function useCreateResource() {
       url,
       content,
       language,
+      customCategoryId,
     }: {
       moduleId: string;
       type: 'youtube' | 'notes' | 'formula' | 'important-questions' | 'pyq';
@@ -54,6 +55,7 @@ export function useCreateResource() {
       url?: string;
       content?: string;
       language?: string;
+      customCategoryId?: string;
     }) => {
       if (!user) throw new Error('Not authenticated');
       
@@ -66,6 +68,7 @@ export function useCreateResource() {
         created_by: user.id,
       };
       if (language) insertData.language = language;
+      if (customCategoryId) insertData.custom_category_id = customCategoryId;
       
       const { data, error } = await supabase
         .from('resources')

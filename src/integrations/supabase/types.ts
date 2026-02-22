@@ -32,6 +32,38 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_categories: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          subject_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          subject_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_categories_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modules: {
         Row: {
           completed: boolean | null
@@ -144,6 +176,7 @@ export type Database = {
           content: string | null
           created_at: string
           created_by: string
+          custom_category_id: string | null
           id: string
           language: string | null
           module_id: string
@@ -155,6 +188,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           created_by: string
+          custom_category_id?: string | null
           id?: string
           language?: string | null
           module_id: string
@@ -166,6 +200,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           created_by?: string
+          custom_category_id?: string | null
           id?: string
           language?: string | null
           module_id?: string
@@ -174,6 +209,13 @@ export type Database = {
           url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "resources_custom_category_id_fkey"
+            columns: ["custom_category_id"]
+            isOneToOne: false
+            referencedRelation: "custom_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "resources_module_id_fkey"
             columns: ["module_id"]
