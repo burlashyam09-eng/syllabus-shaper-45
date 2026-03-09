@@ -145,6 +145,14 @@ const Login = () => {
       }
     }
 
+    // Mark faculty code as used
+    if (!error && userId) {
+      await supabase
+        .from('faculty_codes')
+        .update({ used: true, used_by: userId })
+        .eq('code', facultyCode.toUpperCase());
+    }
+
     setLoading(false);
 
     if (error) {
