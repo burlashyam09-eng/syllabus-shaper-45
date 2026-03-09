@@ -358,9 +358,9 @@ const Login = () => {
                       placeholder="e.g. 1234567890123456ABC"
                       value={facultyCode}
                       onChange={(e) => setFacultyCode(e.target.value.toUpperCase())}
-                      maxLength={19}
+                      maxLength={16}
                     />
-                    <p className="text-xs text-muted-foreground">19 characters: 16 digits + 3 letters</p>
+                    <p className="text-xs text-muted-foreground">16 characters: 13 digits + 3 letters</p>
                   </div>
 
                   <div className="space-y-2">
