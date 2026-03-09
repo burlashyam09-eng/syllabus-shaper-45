@@ -353,6 +353,17 @@ const Login = () => {
                   </div>
 
                   <div className="space-y-2">
+                    <Label>Faculty Unique ID</Label>
+                    <Input
+                      placeholder="e.g. 1234567890123456ABC"
+                      value={facultyCode}
+                      onChange={(e) => setFacultyCode(e.target.value.toUpperCase())}
+                      maxLength={19}
+                    />
+                    <p className="text-xs text-muted-foreground">19 characters: 16 digits + 3 letters</p>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label>Full Name</Label>
                     <Input
                       placeholder="Your full name"
