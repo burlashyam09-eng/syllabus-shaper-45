@@ -64,6 +64,30 @@ export type Database = {
           },
         ]
       }
+      faculty_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          used: boolean
+          used_by: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          used?: boolean
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          used?: boolean
+          used_by?: string | null
+        }
+        Relationships: []
+      }
       modules: {
         Row: {
           completed: boolean | null

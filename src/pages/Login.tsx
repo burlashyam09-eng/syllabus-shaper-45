@@ -37,6 +37,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [facultyCode, setFacultyCode] = useState('');
 
   // Student browse flow state
   const [studentStep, setStudentStep] = useState<1 | 2>(1);
@@ -72,9 +73,43 @@ const Login = () => {
     }
   };
 
+  const validateFacultyCode = (code: string) => {
+    if (code.length !== 19) return false;
+    const digits = code.replace(/[^0-9]/g, '');
+    const letters = code.replace(/[^a-zA-Z]/g, '');
+    return digits.length === 16 && letters.length === 3;
+  };
+
   const handleSignup = async () => {
     if (!email || !password || !name || !selectedBranch) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (!facultyCode) {
+      toast.error('Please enter your Faculty Unique ID');
+      return;
+    }
+
+    if (!validateFacultyCode(facultyCode)) {
+      toast.error('Faculty ID must be 19 characters: 16 digits and 3 letters');
+      return;
+    }
+
+    // Check if the code exists and is unused
+    const { data: codeData, error: codeError } = await supabase
+      .from('faculty_codes')
+      .select('id, used')
+      .eq('code', facultyCode.toUpperCase())
+      .single();
+
+    if (codeError || !codeData) {
+      toast.error('Invalid Faculty Unique ID');
+      return;
+    }
+
+    if (codeData.used) {
+      toast.error('This Faculty Unique ID has already been used');
       return;
     }
 
@@ -108,6 +143,14 @@ const Login = () => {
       } catch (e) {
         console.error('Avatar upload failed:', e);
       }
+    }
+
+    // Mark faculty code as used
+    if (!error && userId) {
+      await supabase
+        .from('faculty_codes')
+        .update({ used: true, used_by: userId })
+        .eq('code', facultyCode.toUpperCase());
     }
 
     setLoading(false);
@@ -307,6 +350,17 @@ const Login = () => {
                       className="hidden"
                       onChange={handleAvatarSelect}
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Faculty Unique ID</Label>
+                    <Input
+                      placeholder="e.g. 1234567890123456ABC"
+                      value={facultyCode}
+                      onChange={(e) => setFacultyCode(e.target.value.toUpperCase())}
+                      maxLength={19}
+                    />
+                    <p className="text-xs text-muted-foreground">19 characters: 16 digits + 3 letters</p>
                   </div>
 
                   <div className="space-y-2">
