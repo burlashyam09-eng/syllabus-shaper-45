@@ -132,6 +132,7 @@ export type Database = {
           branch_id: string | null
           created_at: string
           email: string
+          faculty_code: string | null
           id: string
           name: string
           regulation_id: string | null
@@ -142,6 +143,7 @@ export type Database = {
           branch_id?: string | null
           created_at?: string
           email: string
+          faculty_code?: string | null
           id: string
           name: string
           regulation_id?: string | null
@@ -152,6 +154,7 @@ export type Database = {
           branch_id?: string | null
           created_at?: string
           email?: string
+          faculty_code?: string | null
           id?: string
           name?: string
           regulation_id?: string | null
