@@ -74,10 +74,10 @@ const Login = () => {
   };
 
   const validateFacultyCode = (code: string) => {
-    if (code.length !== 19) return false;
+    if (code.length !== 16) return false;
     const digits = code.replace(/[^0-9]/g, '');
     const letters = code.replace(/[^a-zA-Z]/g, '');
-    return digits.length === 16 && letters.length === 3;
+    return digits.length === 13 && letters.length === 3;
   };
 
   const handleSignup = async () => {
