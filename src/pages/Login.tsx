@@ -73,9 +73,43 @@ const Login = () => {
     }
   };
 
+  const validateFacultyCode = (code: string) => {
+    if (code.length !== 19) return false;
+    const digits = code.replace(/[^0-9]/g, '');
+    const letters = code.replace(/[^a-zA-Z]/g, '');
+    return digits.length === 16 && letters.length === 3;
+  };
+
   const handleSignup = async () => {
     if (!email || !password || !name || !selectedBranch) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (!facultyCode) {
+      toast.error('Please enter your Faculty Unique ID');
+      return;
+    }
+
+    if (!validateFacultyCode(facultyCode)) {
+      toast.error('Faculty ID must be 19 characters: 16 digits and 3 letters');
+      return;
+    }
+
+    // Check if the code exists and is unused
+    const { data: codeData, error: codeError } = await supabase
+      .from('faculty_codes')
+      .select('id, used')
+      .eq('code', facultyCode.toUpperCase())
+      .single();
+
+    if (codeError || !codeData) {
+      toast.error('Invalid Faculty Unique ID');
+      return;
+    }
+
+    if (codeData.used) {
+      toast.error('This Faculty Unique ID has already been used');
       return;
     }
 
