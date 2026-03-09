@@ -37,6 +37,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [facultyCode, setFacultyCode] = useState('');
 
   // Student browse flow state
   const [studentStep, setStudentStep] = useState<1 | 2>(1);
