@@ -96,23 +96,6 @@ const Login = () => {
       return;
     }
 
-    // Check if the code exists and is unused
-    const { data: codeData, error: codeError } = await supabase
-      .from('faculty_codes')
-      .select('id, used')
-      .eq('code', facultyCode.toUpperCase())
-      .single();
-
-    if (codeError || !codeData) {
-      toast.error('Invalid Faculty Unique ID');
-      return;
-    }
-
-    if (codeData.used) {
-      toast.error('This Faculty Unique ID has already been used');
-      return;
-    }
-
     setLoading(true);
     const { error, userId } = await signUp(
       email,
@@ -145,12 +128,12 @@ const Login = () => {
       }
     }
 
-    // Mark faculty code as used
+    // Store faculty code in profile
     if (!error && userId) {
       await supabase
-        .from('faculty_codes')
-        .update({ used: true, used_by: userId })
-        .eq('code', facultyCode.toUpperCase());
+        .from('profiles')
+        .update({ faculty_code: facultyCode.toUpperCase() })
+        .eq('id', userId);
     }
 
     setLoading(false);
