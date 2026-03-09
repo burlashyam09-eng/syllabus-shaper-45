@@ -74,10 +74,10 @@ const Login = () => {
   };
 
   const validateFacultyCode = (code: string) => {
-    if (code.length !== 19) return false;
+    if (code.length !== 16) return false;
     const digits = code.replace(/[^0-9]/g, '');
     const letters = code.replace(/[^a-zA-Z]/g, '');
-    return digits.length === 16 && letters.length === 3;
+    return digits.length === 13 && letters.length === 3;
   };
 
   const handleSignup = async () => {
@@ -92,7 +92,7 @@ const Login = () => {
     }
 
     if (!validateFacultyCode(facultyCode)) {
-      toast.error('Faculty ID must be 19 characters: 16 digits and 3 letters');
+      toast.error('Faculty ID must be 16 characters: 13 digits and 3 letters');
       return;
     }
 
@@ -358,9 +358,9 @@ const Login = () => {
                       placeholder="e.g. 1234567890123456ABC"
                       value={facultyCode}
                       onChange={(e) => setFacultyCode(e.target.value.toUpperCase())}
-                      maxLength={19}
+                      maxLength={16}
                     />
-                    <p className="text-xs text-muted-foreground">19 characters: 16 digits + 3 letters</p>
+                    <p className="text-xs text-muted-foreground">16 characters: 13 digits + 3 letters</p>
                   </div>
 
                   <div className="space-y-2">
