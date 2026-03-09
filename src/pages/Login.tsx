@@ -92,7 +92,7 @@ const Login = () => {
     }
 
     if (!validateFacultyCode(facultyCode)) {
-      toast.error('Faculty ID must be 19 characters: 16 digits and 3 letters');
+      toast.error('Faculty ID must be 16 characters: 13 digits and 3 letters');
       return;
     }
 
