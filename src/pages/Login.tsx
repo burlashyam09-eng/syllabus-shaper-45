@@ -1,13 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, UserRole } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useBranches, useRegulations } from '@/hooks/useBranchesAndRegulations';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -15,56 +14,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { GraduationCap, Users, Camera } from 'lucide-react';
+import { GraduationCap, Users, Shield, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import collegeLogo from '@/assets/college-logo.png';
+
+type RoleSelection = 'admin' | 'faculty' | 'student' | null;
 
 const Login = () => {
   const navigate = useNavigate();
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const { data: branches = [], isLoading: branchesLoading } = useBranches();
   const { data: regulations = [], isLoading: regulationsLoading } = useRegulations();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [isLogin, setIsLogin] = useState(true);
+  const [selectedRole, setSelectedRole] = useState<RoleSelection>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole | 'student-browse' | null>(null);
-  const [selectedBranch, setSelectedBranch] = useState('');
-  const [selectedRegulation, setSelectedRegulation] = useState('');
   const [loading, setLoading] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [facultyCode, setFacultyCode] = useState('');
 
-  // Student browse flow state
+  // Admin login state
+  const [adminUserId, setAdminUserId] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+
+  // Student flow state
   const [studentStep, setStudentStep] = useState<1 | 2>(1);
   const [studentBranch, setStudentBranch] = useState('');
   const [studentRegulation, setStudentRegulation] = useState('');
 
-  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
-  };
-
-  const handleLogin = async () => {
+  const handleFacultyLogin = async () => {
     if (!email || !password) {
       toast.error('Please enter email and password');
       return;
     }
-
     setLoading(true);
     const { error } = await signIn(email, password);
     setLoading(false);
-
     if (error) {
       toast.error(error.message);
     } else {
@@ -73,90 +56,27 @@ const Login = () => {
     }
   };
 
-  const validateFacultyCode = (code: string) => {
-    if (code.length !== 16) return false;
-    const digits = code.replace(/[^0-9]/g, '');
-    const letters = code.replace(/[^a-zA-Z]/g, '');
-    return digits.length === 13 && letters.length === 3;
-  };
-
-  const handleSignup = async () => {
-    if (!email || !password || !name || !selectedBranch) {
-      toast.error('Please fill in all required fields');
+  const handleAdminLogin = async () => {
+    if (!adminUserId || !adminPassword) {
+      toast.error('Please enter User ID and Password');
       return;
     }
-
-    if (!facultyCode) {
-      toast.error('Please enter your Faculty Unique ID');
-      return;
-    }
-
-    if (!validateFacultyCode(facultyCode)) {
-      toast.error('Faculty ID must be 16 characters: 13 digits and 3 letters');
-      return;
-    }
-
     setLoading(true);
-
-    // Check if faculty code already exists
-    const { data: existingCode } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('faculty_code', facultyCode.toUpperCase())
-      .maybeSingle();
-
-    if (existingCode) {
-      toast.error('Faculty ID already exists. Please use a different ID.');
-      setLoading(false);
-      return;
-    }
-    const { error, userId } = await signUp(
-      email,
-      password,
-      name,
-      'faculty',
-      selectedBranch,
-    );
-
-    // Upload avatar if selected and signup succeeded
-    if (!error && userId && avatarFile) {
-      try {
-        const path = `avatars/${userId}/${Date.now()}_${avatarFile.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from('resources')
-          .upload(path, avatarFile, { upsert: true });
-        
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('resources')
-            .getPublicUrl(path);
-          
-          await supabase
-            .from('profiles')
-            .update({ avatar_url: publicUrl })
-            .eq('id', userId);
-        }
-      } catch (e) {
-        console.error('Avatar upload failed:', e);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-login', {
+        body: { userId: adminUserId, password: adminPassword },
+      });
+      if (error || !data?.success) {
+        toast.error(data?.error || 'Invalid admin credentials');
+      } else {
+        sessionStorage.setItem('admin_token', data.token);
+        toast.success('Welcome, Admin!');
+        navigate('/admin/dashboard');
       }
+    } catch {
+      toast.error('Login failed. Please try again.');
     }
-
-    // Store faculty code in profile
-    if (!error && userId) {
-      await supabase
-        .from('profiles')
-        .update({ faculty_code: facultyCode.toUpperCase() })
-        .eq('id', userId);
-    }
-
     setLoading(false);
-
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success('Account created successfully!');
-      navigate('/dashboard');
-    }
   };
 
   const handleStudentBrowse = () => {
@@ -173,6 +93,17 @@ const Login = () => {
       }
       navigate(`/student/dashboard?branch=${studentBranch}&regulation=${studentRegulation}`);
     }
+  };
+
+  const handleBack = () => {
+    setSelectedRole(null);
+    setEmail('');
+    setPassword('');
+    setAdminUserId('');
+    setAdminPassword('');
+    setStudentStep(1);
+    setStudentBranch('');
+    setStudentRegulation('');
   };
 
   return (
@@ -194,203 +125,137 @@ const Login = () => {
       </header>
 
       <div className="flex-1 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-            <GraduationCap className="w-8 h-8 text-primary" />
-          </div>
-          <CardTitle className="text-2xl">EduLearn Platform</CardTitle>
-          <CardDescription>Your academic learning companion</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={isLogin ? 'login' : 'signup'} onValueChange={(v) => { setIsLogin(v === 'login'); setSelectedRole(null); }}>
-            <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/60">
-              <TabsTrigger value="login" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground">Login</TabsTrigger>
-              <TabsTrigger value="signup" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground">Sign Up</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="login" className="space-y-4">
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Password</Label>
-                <Input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <Button className="w-full" onClick={handleLogin} disabled={loading}>
-                {loading ? 'Signing in...' : 'Sign In'}
-              </Button>
-            </TabsContent>
-
-            <TabsContent value="signup" className="space-y-4">
-              {/* Role Selector */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <Card
-                  className={`cursor-pointer transition-all hover:shadow-lg ${
-                    selectedRole === 'faculty' ? 'ring-2 ring-primary bg-primary/5' : ''
-                  }`}
-                  onClick={() => { setSelectedRole('faculty'); setStudentStep(1); }}
-                >
-                  <CardContent className="flex flex-col items-center justify-center p-4">
-                    <Users className="w-10 h-10 text-primary mb-2" />
-                    <h3 className="font-semibold text-sm">Faculty</h3>
-                    <p className="text-xs text-muted-foreground text-center">Add & manage</p>
-                  </CardContent>
-                </Card>
-                <Card
-                  className={`cursor-pointer transition-all hover:shadow-lg ${
-                    selectedRole === 'student-browse' ? 'ring-2 ring-primary bg-primary/5' : ''
-                  }`}
-                  onClick={() => { setSelectedRole('student-browse'); setStudentStep(1); setStudentBranch(''); setStudentRegulation(''); }}
-                >
-                  <CardContent className="flex flex-col items-center justify-center p-4">
-                    <GraduationCap className="w-10 h-10 text-primary mb-2" />
-                    <h3 className="font-semibold text-sm">Student</h3>
-                    <p className="text-xs text-muted-foreground text-center">View & learn</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Student Browse Flow */}
-              {selectedRole === 'student-browse' && (
-                <div className="space-y-4">
-                  {studentStep === 1 && (
-                    <div className="space-y-2">
-                      <Label>Select Your Branch</Label>
-                      <Select value={studentBranch} onValueChange={setStudentBranch}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your branch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branchesLoading ? (
-                            <SelectItem value="loading" disabled>Loading...</SelectItem>
-                          ) : (
-                            branches.map((branch) => (
-                              <SelectItem key={branch.id} value={branch.id}>
-                                {branch.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  {studentStep === 2 && (
-                    <div className="space-y-2">
-                      <Label>Select Your Regulation</Label>
-                      <Select value={studentRegulation} onValueChange={setStudentRegulation}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your regulation" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {regulationsLoading ? (
-                            <SelectItem value="loading" disabled>Loading...</SelectItem>
-                          ) : regulations.length === 0 ? (
-                            <SelectItem value="none" disabled>No regulations available</SelectItem>
-                          ) : (
-                            regulations.map((reg) => (
-                              <SelectItem key={reg.id} value={reg.id}>
-                                {reg.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    {studentStep === 2 && (
-                      <Button variant="outline" className="flex-1" onClick={() => setStudentStep(1)}>
-                        Back
-                      </Button>
-                    )}
-                    <Button className="flex-1" onClick={handleStudentBrowse}>
-                      {studentStep === 1 ? 'Next' : 'Browse Syllabus'}
-                    </Button>
-                  </div>
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <GraduationCap className="w-8 h-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl">EduLearn Platform</CardTitle>
+            <CardDescription>Your academic learning companion</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {/* Role Selection */}
+            {!selectedRole && (
+              <div className="space-y-4">
+                <p className="text-sm text-center text-muted-foreground mb-4">Select your role to continue</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <Card
+                    className="cursor-pointer transition-all hover:shadow-lg hover:ring-2 hover:ring-primary/50"
+                    onClick={() => setSelectedRole('admin')}
+                  >
+                    <CardContent className="flex flex-col items-center justify-center p-4">
+                      <Shield className="w-10 h-10 text-primary mb-2" />
+                      <h3 className="font-semibold text-sm">Admin</h3>
+                      <p className="text-[10px] text-muted-foreground text-center">Manage system</p>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    className="cursor-pointer transition-all hover:shadow-lg hover:ring-2 hover:ring-primary/50"
+                    onClick={() => setSelectedRole('faculty')}
+                  >
+                    <CardContent className="flex flex-col items-center justify-center p-4">
+                      <Users className="w-10 h-10 text-primary mb-2" />
+                      <h3 className="font-semibold text-sm">Faculty</h3>
+                      <p className="text-[10px] text-muted-foreground text-center">Add & manage</p>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    className="cursor-pointer transition-all hover:shadow-lg hover:ring-2 hover:ring-primary/50"
+                    onClick={() => setSelectedRole('student')}
+                  >
+                    <CardContent className="flex flex-col items-center justify-center p-4">
+                      <GraduationCap className="w-10 h-10 text-primary mb-2" />
+                      <h3 className="font-semibold text-sm">Student</h3>
+                      <p className="text-[10px] text-muted-foreground text-center">View & learn</p>
+                    </CardContent>
+                  </Card>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Faculty Signup */}
-              {selectedRole === 'faculty' && (
-                <>
-                  {/* Faculty Avatar Upload */}
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="relative cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                      <Avatar className="w-20 h-20">
-                        <AvatarImage src={avatarPreview || ''} />
-                        <AvatarFallback className="bg-primary/10">
-                          <Camera className="w-8 h-8 text-muted-foreground" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="absolute bottom-0 right-0 bg-primary rounded-full p-1">
-                        <Camera className="w-3 h-3 text-primary-foreground" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Add profile photo</p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarSelect}
-                    />
-                  </div>
+            {/* Admin Login */}
+            {selectedRole === 'admin' && (
+              <div className="space-y-4">
+                <Button variant="ghost" size="sm" onClick={handleBack} className="mb-2">
+                  <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                </Button>
+                <div className="text-center mb-4">
+                  <Shield className="w-10 h-10 text-primary mx-auto mb-2" />
+                  <h3 className="font-semibold text-lg">Admin Login</h3>
+                </div>
+                <div className="space-y-2">
+                  <Label>User ID</Label>
+                  <Input
+                    placeholder="Enter admin user ID"
+                    value={adminUserId}
+                    onChange={(e) => setAdminUserId(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                  />
+                </div>
+                <Button className="w-full" onClick={handleAdminLogin} disabled={loading}>
+                  {loading ? 'Signing in...' : 'Sign In as Admin'}
+                </Button>
+              </div>
+            )}
 
-                  <div className="space-y-2">
-                    <Label>Faculty Unique ID</Label>
-                    <Input
-                      placeholder="e.g. 12345A67890B123C"
-                      value={facultyCode}
-                      onChange={(e) => setFacultyCode(e.target.value.toUpperCase())}
-                      maxLength={16}
-                    />
-                    <p className="text-xs text-muted-foreground">16 characters: 13 digits + 3 letters</p>
-                  </div>
+            {/* Faculty Login */}
+            {selectedRole === 'faculty' && (
+              <div className="space-y-4">
+                <Button variant="ghost" size="sm" onClick={handleBack} className="mb-2">
+                  <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                </Button>
+                <div className="text-center mb-4">
+                  <Users className="w-10 h-10 text-primary mx-auto mb-2" />
+                  <h3 className="font-semibold text-lg">Faculty Login</h3>
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+                <Button className="w-full" onClick={handleFacultyLogin} disabled={loading}>
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </Button>
+              </div>
+            )}
 
-                  <div className="space-y-2">
-                    <Label>Full Name</Label>
-                    <Input
-                      placeholder="Your full name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Password</Label>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </div>
-
+            {/* Student Flow */}
+            {selectedRole === 'student' && (
+              <div className="space-y-4">
+                <Button variant="ghost" size="sm" onClick={studentStep === 2 ? () => setStudentStep(1) : handleBack} className="mb-2">
+                  <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                </Button>
+                <div className="text-center mb-4">
+                  <GraduationCap className="w-10 h-10 text-primary mx-auto mb-2" />
+                  <h3 className="font-semibold text-lg">
+                    {studentStep === 1 ? 'Select Your Branch' : 'Select Your Regulation'}
+                  </h3>
+                </div>
+                {studentStep === 1 && (
                   <div className="space-y-2">
                     <Label>Branch</Label>
-                    <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                    <Select value={studentBranch} onValueChange={setStudentBranch}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select your branch" />
                       </SelectTrigger>
@@ -407,16 +272,37 @@ const Login = () => {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  <Button className="w-full" onClick={handleSignup} disabled={loading}>
-                    {loading ? 'Creating account...' : 'Create Account'}
-                  </Button>
-                </>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                )}
+                {studentStep === 2 && (
+                  <div className="space-y-2">
+                    <Label>Regulation</Label>
+                    <Select value={studentRegulation} onValueChange={setStudentRegulation}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your regulation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {regulationsLoading ? (
+                          <SelectItem value="loading" disabled>Loading...</SelectItem>
+                        ) : regulations.length === 0 ? (
+                          <SelectItem value="none" disabled>No regulations available</SelectItem>
+                        ) : (
+                          regulations.map((reg) => (
+                            <SelectItem key={reg.id} value={reg.id}>
+                              {reg.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button className="w-full" onClick={handleStudentBrowse}>
+                  {studentStep === 1 ? 'Next' : 'Browse Syllabus'}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
