@@ -12,6 +12,7 @@ import ModulePage from "./pages/ModulePage";
 import StudentDashboard from "./pages/StudentDashboard";
 import StudentSubjectPage from "./pages/StudentSubjectPage";
 import StudentModulePage from "./pages/StudentModulePage";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
