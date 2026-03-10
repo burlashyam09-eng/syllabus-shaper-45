@@ -97,6 +97,19 @@ const Login = () => {
     }
 
     setLoading(true);
+
+    // Check if faculty code already exists
+    const { data: existingCode } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('faculty_code', facultyCode.toUpperCase())
+      .maybeSingle();
+
+    if (existingCode) {
+      toast.error('Faculty ID already exists. Please use a different ID.');
+      setLoading(false);
+      return;
+    }
     const { error, userId } = await signUp(
       email,
       password,
