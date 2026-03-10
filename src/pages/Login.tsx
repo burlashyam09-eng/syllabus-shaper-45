@@ -99,7 +99,7 @@ const Login = () => {
 
   const handleBack = () => {
     setSelectedRole(null);
-    setEmail('');
+    setFacultyCode('');
     setPassword('');
     setAdminUserId('');
     setAdminPassword('');
