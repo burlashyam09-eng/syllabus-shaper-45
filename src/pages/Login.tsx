@@ -27,7 +27,7 @@ const Login = () => {
   const { data: regulations = [], isLoading: regulationsLoading } = useRegulations();
 
   const [selectedRole, setSelectedRole] = useState<RoleSelection>(null);
-  const [email, setEmail] = useState('');
+  const [facultyCode, setFacultyCode] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
