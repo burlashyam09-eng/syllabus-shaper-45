@@ -12,6 +12,7 @@ import ModulePage from "./pages/ModulePage";
 import StudentDashboard from "./pages/StudentDashboard";
 import StudentSubjectPage from "./pages/StudentSubjectPage";
 import StudentModulePage from "./pages/StudentModulePage";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,6 +73,8 @@ const AppRoutes = () => {
       <Route path="/student/dashboard" element={<StudentDashboard />} />
       <Route path="/student/subject/:id" element={<StudentSubjectPage />} />
       <Route path="/student/subject/:id/unit/:unitId/module/:moduleId" element={<StudentModulePage />} />
+      {/* Admin route */}
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
