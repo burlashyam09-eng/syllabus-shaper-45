@@ -41,15 +41,17 @@ const Login = () => {
   const [studentRegulation, setStudentRegulation] = useState('');
 
   const handleFacultyLogin = async () => {
-    if (!email || !password) {
-      toast.error('Please enter email and password');
+    if (!facultyCode || !password) {
+      toast.error('Please enter Faculty Unique ID and password');
       return;
     }
     setLoading(true);
-    const { error } = await signIn(email, password);
+    // Convert faculty code to synthetic email for auth
+    const syntheticEmail = `${facultyCode.toLowerCase()}@faculty.edulearn.local`;
+    const { error } = await signIn(syntheticEmail, password);
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error('Invalid Faculty ID or password');
     } else {
       toast.success('Welcome back!');
       navigate('/dashboard');
