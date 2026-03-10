@@ -27,7 +27,7 @@ const Login = () => {
   const { data: regulations = [], isLoading: regulationsLoading } = useRegulations();
 
   const [selectedRole, setSelectedRole] = useState<RoleSelection>(null);
-  const [email, setEmail] = useState('');
+  const [facultyCode, setFacultyCode] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -41,15 +41,17 @@ const Login = () => {
   const [studentRegulation, setStudentRegulation] = useState('');
 
   const handleFacultyLogin = async () => {
-    if (!email || !password) {
-      toast.error('Please enter email and password');
+    if (!facultyCode || !password) {
+      toast.error('Please enter Faculty Unique ID and password');
       return;
     }
     setLoading(true);
-    const { error } = await signIn(email, password);
+    // Convert faculty code to synthetic email for auth
+    const syntheticEmail = `${facultyCode.toLowerCase()}@faculty.edulearn.local`;
+    const { error } = await signIn(syntheticEmail, password);
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error('Invalid Faculty ID or password');
     } else {
       toast.success('Welcome back!');
       navigate('/dashboard');
@@ -97,7 +99,7 @@ const Login = () => {
 
   const handleBack = () => {
     setSelectedRole(null);
-    setEmail('');
+    setFacultyCode('');
     setPassword('');
     setAdminUserId('');
     setAdminPassword('');
@@ -217,12 +219,11 @@ const Login = () => {
                   <h3 className="font-semibold text-lg">Faculty Login</h3>
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
+                  <Label>Faculty Unique ID</Label>
                   <Input
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your Faculty Unique ID"
+                    value={facultyCode}
+                    onChange={(e) => setFacultyCode(e.target.value.toUpperCase())}
                   />
                 </div>
                 <div className="space-y-2">
