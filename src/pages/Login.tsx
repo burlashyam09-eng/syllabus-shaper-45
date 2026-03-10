@@ -219,12 +219,11 @@ const Login = () => {
                   <h3 className="font-semibold text-lg">Faculty Login</h3>
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
+                  <Label>Faculty Unique ID</Label>
                   <Input
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your Faculty Unique ID"
+                    value={facultyCode}
+                    onChange={(e) => setFacultyCode(e.target.value.toUpperCase())}
                   />
                 </div>
                 <div className="space-y-2">
