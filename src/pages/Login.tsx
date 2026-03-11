@@ -34,6 +34,8 @@ const Login = () => {
   // Admin login state
   const [adminUserId, setAdminUserId] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
+  const [adminBranch, setAdminBranch] = useState('');
+  const [adminStep, setAdminStep] = useState<1 | 2>(1);
 
   // Student flow state
   const [studentStep, setStudentStep] = useState<1 | 2>(1);
