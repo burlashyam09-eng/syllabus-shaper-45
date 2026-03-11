@@ -65,15 +65,20 @@ const Login = () => {
       toast.error('Please enter User ID and Password');
       return;
     }
+    if (!adminBranch) {
+      toast.error('Please select a branch first');
+      return;
+    }
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('admin-login', {
-        body: { userId: adminUserId, password: adminPassword },
+        body: { userId: adminUserId, password: adminPassword, branchId: adminBranch },
       });
       if (error || !data?.success) {
-        toast.error(data?.error || 'Invalid admin credentials');
+        toast.error(data?.error || 'Invalid admin credentials for this branch');
       } else {
         sessionStorage.setItem('admin_token', data.token);
+        sessionStorage.setItem('admin_branch', adminBranch);
         toast.success('Welcome, Admin!');
         navigate('/admin/dashboard');
       }
