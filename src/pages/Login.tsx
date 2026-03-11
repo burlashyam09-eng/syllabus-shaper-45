@@ -110,6 +110,8 @@ const Login = () => {
     setPassword('');
     setAdminUserId('');
     setAdminPassword('');
+    setAdminBranch('');
+    setAdminStep(1);
     setStudentStep(1);
     setStudentBranch('');
     setStudentRegulation('');
