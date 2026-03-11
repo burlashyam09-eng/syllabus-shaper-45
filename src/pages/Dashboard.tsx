@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,6 +64,9 @@ import collegeLogo from '@/assets/college-logo.png';
 
 const Dashboard = () => {
   const { profile, role, signOut, isFaculty, user } = useAuth();
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [facultyDisplayName, setFacultyDisplayName] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const { data: branches = [] } = useBranches();
   const { data: regulations = [], isLoading: regulationsLoading } = useRegulations();
   const createRegulation = useCreateRegulation();
@@ -118,6 +122,39 @@ const Dashboard = () => {
 
   const branchName = branches.find(b => b.id === profile?.branch_id)?.name || 'Unknown Branch';
   const regulationName = regulations.find(r => r.id === profile?.regulation_id)?.name;
+
+  // Check if faculty needs to set their name on first login
+  useEffect(() => {
+    if (isFaculty && profile) {
+      // If name equals faculty_code, they haven't set a real name yet
+      const profileAny = profile as any;
+      const facultyCode = profileAny.faculty_code;
+      if (facultyCode && profile.name === facultyCode) {
+        setShowNamePrompt(true);
+      }
+    }
+  }, [isFaculty, profile]);
+
+  const handleSaveName = async () => {
+    if (!facultyDisplayName.trim()) {
+      toast.error('Please enter your name');
+      return;
+    }
+    setSavingName(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ name: facultyDisplayName.trim() })
+      .eq('id', user?.id);
+    if (error) {
+      toast.error('Failed to save name');
+    } else {
+      toast.success('Name saved successfully!');
+      setShowNamePrompt(false);
+      // Refresh page to update profile
+      window.location.reload();
+    }
+    setSavingName(false);
+  };
 
   const handleAddSubject = async () => {
     if (newSubjectName.trim() && newSubjectCode.trim() && newSubjectRegulation) {
@@ -708,6 +745,32 @@ const Dashboard = () => {
                 );
               })
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Faculty Name Prompt on First Login */}
+      <Dialog open={showNamePrompt} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Welcome! Please enter your name</DialogTitle>
+            <DialogDescription>
+              This is your first login. Please enter your full name to complete your profile setup.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Full Name</Label>
+              <Input
+                placeholder="Enter your full name"
+                value={facultyDisplayName}
+                onChange={(e) => setFacultyDisplayName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+              />
+            </div>
+            <Button className="w-full" onClick={handleSaveName} disabled={savingName}>
+              {savingName ? 'Saving...' : 'Save Name'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
