@@ -63,6 +63,9 @@ import collegeLogo from '@/assets/college-logo.png';
 
 const Dashboard = () => {
   const { profile, role, signOut, isFaculty, user } = useAuth();
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [facultyDisplayName, setFacultyDisplayName] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const { data: branches = [] } = useBranches();
   const { data: regulations = [], isLoading: regulationsLoading } = useRegulations();
   const createRegulation = useCreateRegulation();
