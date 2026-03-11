@@ -187,33 +187,74 @@ const Login = () => {
             {/* Admin Login */}
             {selectedRole === 'admin' && (
               <div className="space-y-4">
-                <Button variant="ghost" size="sm" onClick={handleBack} className="mb-2">
+                <Button variant="ghost" size="sm" onClick={adminStep === 2 ? () => setAdminStep(1) : handleBack} className="mb-2">
                   <ArrowLeft className="w-4 h-4 mr-1" /> Back
                 </Button>
                 <div className="text-center mb-4">
                   <Shield className="w-10 h-10 text-primary mx-auto mb-2" />
-                  <h3 className="font-semibold text-lg">Admin Login</h3>
+                  <h3 className="font-semibold text-lg">
+                    {adminStep === 1 ? 'Select Your Branch' : 'Admin Login'}
+                  </h3>
                 </div>
-                <div className="space-y-2">
-                  <Label>User ID</Label>
-                  <Input
-                    placeholder="Enter admin user ID"
-                    value={adminUserId}
-                    onChange={(e) => setAdminUserId(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Password</Label>
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                  />
-                </div>
-                <Button className="w-full" onClick={handleAdminLogin} disabled={loading}>
-                  {loading ? 'Signing in...' : 'Sign In as Admin'}
-                </Button>
+                {adminStep === 1 && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Branch</Label>
+                      <Select value={adminBranch} onValueChange={setAdminBranch}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branchesLoading ? (
+                            <SelectItem value="loading" disabled>Loading...</SelectItem>
+                          ) : (
+                            branches.map((branch) => (
+                              <SelectItem key={branch.id} value={branch.id}>
+                                {branch.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button className="w-full" onClick={() => {
+                      if (!adminBranch) {
+                        toast.error('Please select a branch');
+                        return;
+                      }
+                      setAdminStep(2);
+                    }}>
+                      Next
+                    </Button>
+                  </>
+                )}
+                {adminStep === 2 && (
+                  <>
+                    <p className="text-sm text-center text-muted-foreground">
+                      Branch: {branches.find(b => b.id === adminBranch)?.name}
+                    </p>
+                    <div className="space-y-2">
+                      <Label>User ID</Label>
+                      <Input
+                        placeholder="Enter admin user ID"
+                        value={adminUserId}
+                        onChange={(e) => setAdminUserId(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Password</Label>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                      />
+                    </div>
+                    <Button className="w-full" onClick={handleAdminLogin} disabled={loading}>
+                      {loading ? 'Signing in...' : 'Sign In as Admin'}
+                    </Button>
+                  </>
+                )}
               </div>
             )}
 
