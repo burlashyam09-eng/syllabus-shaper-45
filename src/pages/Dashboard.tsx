@@ -122,6 +122,39 @@ const Dashboard = () => {
   const branchName = branches.find(b => b.id === profile?.branch_id)?.name || 'Unknown Branch';
   const regulationName = regulations.find(r => r.id === profile?.regulation_id)?.name;
 
+  // Check if faculty needs to set their name on first login
+  useEffect(() => {
+    if (isFaculty && profile) {
+      // If name equals faculty_code, they haven't set a real name yet
+      const profileAny = profile as any;
+      const facultyCode = profileAny.faculty_code;
+      if (facultyCode && profile.name === facultyCode) {
+        setShowNamePrompt(true);
+      }
+    }
+  }, [isFaculty, profile]);
+
+  const handleSaveName = async () => {
+    if (!facultyDisplayName.trim()) {
+      toast.error('Please enter your name');
+      return;
+    }
+    setSavingName(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ name: facultyDisplayName.trim() })
+      .eq('id', user?.id);
+    if (error) {
+      toast.error('Failed to save name');
+    } else {
+      toast.success('Name saved successfully!');
+      setShowNamePrompt(false);
+      // Refresh page to update profile
+      window.location.reload();
+    }
+    setSavingName(false);
+  };
+
   const handleAddSubject = async () => {
     if (newSubjectName.trim() && newSubjectCode.trim() && newSubjectRegulation) {
       // Check for duplicate subject code
