@@ -48,8 +48,9 @@ const Login = () => {
       return;
     }
     setLoading(true);
-    // Convert faculty code to synthetic email for auth
-    const syntheticEmail = `${facultyCode.toLowerCase()}@faculty.edulearn.local`;
+    // Convert faculty code to synthetic email for auth - trim whitespace
+    const trimmedCode = facultyCode.trim();
+    const syntheticEmail = `${trimmedCode.toLowerCase()}@faculty.edulearn.local`;
     const { error } = await signIn(syntheticEmail, password);
     setLoading(false);
     if (error) {
