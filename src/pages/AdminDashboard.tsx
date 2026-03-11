@@ -6,13 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Shield, LogOut, Users, BookOpen, GitBranch, FileText, Plus, Eye, EyeOff } from 'lucide-react';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Shield, LogOut, Users, BookOpen, GitBranch, FileText, Plus, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBranches, useRegulations } from '@/hooks/useBranchesAndRegulations';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,31 +33,38 @@ interface FacultyEntry {
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [adminBranchId, setAdminBranchId] = useState('');
   const { data: branches = [] } = useBranches();
   const { data: regulations = [] } = useRegulations();
   const [subjectCount, setSubjectCount] = useState(0);
-  const [facultyCount, setFacultyCount] = useState(0);
   const [facultyList, setFacultyList] = useState<FacultyEntry[]>([]);
 
   // Create faculty form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newFacultyCode, setNewFacultyCode] = useState('');
   const [newFacultyPassword, setNewFacultyPassword] = useState('');
-  const [newFacultyBranch, setNewFacultyBranch] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const fetchData = async () => {
-    const { count: sCount } = await supabase.from('subjects').select('id', { count: 'exact', head: true });
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<FacultyEntry | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const branchName = branches.find(b => b.id === adminBranchId)?.name || 'Unknown Branch';
+
+  const fetchData = async (branchId: string) => {
+    // Count subjects for this branch only
+    const { count: sCount } = await supabase
+      .from('subjects')
+      .select('id', { count: 'exact', head: true })
+      .eq('branch_id', branchId);
     setSubjectCount(sCount || 0);
 
-    const { count: fCount } = await supabase.from('user_roles').select('id', { count: 'exact', head: true }).eq('role', 'faculty');
-    setFacultyCount(fCount || 0);
-
-    // Fetch faculty list
+    // Fetch faculty list for this branch only
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, faculty_code, branch_id, name, created_at')
+      .eq('branch_id', branchId)
       .not('faculty_code', 'is', null);
 
     if (profiles) {
@@ -64,21 +74,24 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const token = sessionStorage.getItem('admin_token');
-    if (!token) {
+    const branchId = sessionStorage.getItem('admin_branch');
+    if (!token || !branchId) {
       navigate('/', { replace: true });
       return;
     }
+    setAdminBranchId(branchId);
     setIsAuthorized(true);
-    fetchData();
+    fetchData(branchId);
   }, [navigate]);
 
   const handleLogout = () => {
     sessionStorage.removeItem('admin_token');
+    sessionStorage.removeItem('admin_branch');
     navigate('/', { replace: true });
   };
 
   const handleCreateFaculty = async () => {
-    if (!newFacultyCode || !newFacultyPassword || !newFacultyBranch) {
+    if (!newFacultyCode || !newFacultyPassword) {
       toast.error('Please fill in all fields');
       return;
     }
@@ -96,7 +109,7 @@ const AdminDashboard = () => {
           adminToken,
           facultyCode: newFacultyCode.toUpperCase(),
           password: newFacultyPassword,
-          branchId: newFacultyBranch,
+          branchId: adminBranchId,
         },
       });
 
@@ -106,14 +119,38 @@ const AdminDashboard = () => {
         toast.success('Faculty account created successfully!');
         setNewFacultyCode('');
         setNewFacultyPassword('');
-        setNewFacultyBranch('');
         setShowCreateForm(false);
-        fetchData();
+        fetchData(adminBranchId);
       }
     } catch {
       toast.error('Failed to create faculty account');
     }
     setCreating(false);
+  };
+
+  const handleDeleteFaculty = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const adminToken = sessionStorage.getItem('admin_token');
+      const { data, error } = await supabase.functions.invoke('delete-faculty', {
+        body: {
+          adminToken,
+          facultyUserId: deleteTarget.id,
+        },
+      });
+
+      if (error || !data?.success) {
+        toast.error(data?.error || 'Failed to delete faculty account');
+      } else {
+        toast.success('Faculty account deleted successfully');
+        setDeleteTarget(null);
+        fetchData(adminBranchId);
+      }
+    } catch {
+      toast.error('Failed to delete faculty account');
+    }
+    setDeleting(false);
   };
 
   if (!isAuthorized) return null;
@@ -138,7 +175,7 @@ const AdminDashboard = () => {
               </div>
               <div>
                 <h1 className="text-lg sm:text-xl font-bold text-foreground">Admin Dashboard</h1>
-                <p className="text-xs text-muted-foreground">System Overview</p>
+                <p className="text-xs text-muted-foreground">{branchName}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -158,19 +195,10 @@ const AdminDashboard = () => {
 
       <main className="container mx-auto px-4 py-8 space-y-8">
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Branches</CardTitle>
-              <GitBranch className="w-5 h-5 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{branches.length}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Regulations</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Branch Regulations</CardTitle>
               <FileText className="w-5 h-5 text-primary" />
             </CardHeader>
             <CardContent>
@@ -179,7 +207,7 @@ const AdminDashboard = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Subjects</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Branch Subjects</CardTitle>
               <BookOpen className="w-5 h-5 text-primary" />
             </CardHeader>
             <CardContent>
@@ -188,11 +216,11 @@ const AdminDashboard = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Faculty</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Branch Faculty</CardTitle>
               <Users className="w-5 h-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{facultyCount}</p>
+              <p className="text-3xl font-bold">{facultyList.length}</p>
             </CardContent>
           </Card>
         </div>
@@ -202,8 +230,8 @@ const AdminDashboard = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-lg">Faculty Management</CardTitle>
-                <CardDescription>Create and manage faculty login accounts</CardDescription>
+                <CardTitle className="text-lg">Faculty Management — {branchName}</CardTitle>
+                <CardDescription>Create and manage faculty login accounts for this branch</CardDescription>
               </div>
               <Button onClick={() => setShowCreateForm(!showCreateForm)} size="sm">
                 <Plus className="w-4 h-4 mr-1" />
@@ -216,7 +244,7 @@ const AdminDashboard = () => {
             {showCreateForm && (
               <Card className="border-dashed">
                 <CardContent className="pt-6 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Faculty Unique ID</Label>
                       <Input
@@ -224,21 +252,6 @@ const AdminDashboard = () => {
                         value={newFacultyCode}
                         onChange={(e) => setNewFacultyCode(e.target.value.toUpperCase())}
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Branch</Label>
-                      <Select value={newFacultyBranch} onValueChange={setNewFacultyBranch}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select branch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branches.map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id}>
-                              {branch.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label>Password</Label>
@@ -261,6 +274,7 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">Branch: <strong>{branchName}</strong> (auto-assigned)</p>
                   <div className="flex gap-2 justify-end">
                     <Button variant="outline" onClick={() => setShowCreateForm(false)}>Cancel</Button>
                     <Button onClick={handleCreateFaculty} disabled={creating}>
@@ -279,19 +293,28 @@ const AdminDashboard = () => {
                     <thead>
                       <tr className="border-b bg-muted/50">
                         <th className="p-3 text-left font-medium text-muted-foreground">Faculty ID</th>
-                        <th className="p-3 text-left font-medium text-muted-foreground">Branch</th>
+                        <th className="p-3 text-left font-medium text-muted-foreground">Name</th>
                         <th className="p-3 text-left font-medium text-muted-foreground">Created</th>
+                        <th className="p-3 text-right font-medium text-muted-foreground">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {facultyList.map((faculty) => (
                         <tr key={faculty.id} className="border-b last:border-0">
                           <td className="p-3 font-mono text-xs">{faculty.faculty_code}</td>
-                          <td className="p-3">
-                            {branches.find(b => b.id === faculty.branch_id)?.name || '—'}
-                          </td>
+                          <td className="p-3">{faculty.name || '—'}</td>
                           <td className="p-3 text-muted-foreground">
                             {new Date(faculty.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setDeleteTarget(faculty)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -305,6 +328,28 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Faculty Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the faculty account <strong>{deleteTarget?.faculty_code}</strong>? This action cannot be undone and will remove all their login access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteFaculty}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
