@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ArrowLeft, Youtube, FileText, HelpCircle, History, ExternalLink, Tag,
 } from 'lucide-react';
+import StudentChatbot from '@/components/StudentChatbot';
 
 type ResourceType = 'youtube' | 'notes' | 'important-questions' | 'pyq';
 
