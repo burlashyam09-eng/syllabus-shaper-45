@@ -178,6 +178,7 @@ const StudentModulePage = () => {
       />
     </div>
   );
+};
 
 function ResourceList({ resources, icon: Icon, color, label }: {
   resources: any[];
