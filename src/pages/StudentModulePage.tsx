@@ -166,9 +166,18 @@ const StudentModulePage = () => {
           ))}
         </Tabs>
       </main>
+
+      <StudentChatbot
+        moduleContext={{
+          moduleName: moduleData.name,
+          subjectName: subject?.name || '',
+          subjectCode: subject?.code || '',
+          unitName: unit?.name || '',
+          topics: moduleData.topics || [],
+        }}
+      />
     </div>
   );
-};
 
 function ResourceList({ resources, icon: Icon, color, label }: {
   resources: any[];
