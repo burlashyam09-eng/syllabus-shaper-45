@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ArrowLeft, Youtube, FileText, HelpCircle, History, ExternalLink, Tag,
 } from 'lucide-react';
+import StudentChatbot from '@/components/StudentChatbot';
 
 type ResourceType = 'youtube' | 'notes' | 'important-questions' | 'pyq';
 
@@ -165,6 +166,16 @@ const StudentModulePage = () => {
           ))}
         </Tabs>
       </main>
+
+      <StudentChatbot
+        moduleContext={{
+          moduleName: moduleData.name,
+          subjectName: subject?.name || '',
+          subjectCode: subject?.code || '',
+          unitName: unit?.name || '',
+          topics: moduleData.topics || [],
+        }}
+      />
     </div>
   );
 };
