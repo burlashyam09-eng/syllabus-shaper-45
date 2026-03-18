@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_tokens: {
+        Row: {
+          branch_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          token: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token?: string
+        }
+        Relationships: []
+      }
       branches: {
         Row: {
           created_at: string
