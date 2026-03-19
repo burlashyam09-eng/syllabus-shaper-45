@@ -6,6 +6,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function validateAdminToken(supabase: any, adminToken: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("admin_tokens")
+    .select("id")
+    .eq("token", adminToken)
+    .gt("expires_at", new Date().toISOString())
+    .maybeSingle();
+
+  return !error && !!data;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -14,8 +25,12 @@ serve(async (req) => {
   try {
     const { adminToken, facultyCode, password, branchId } = await req.json();
 
-    // Validate admin token from session
-    if (!adminToken || typeof adminToken !== "string") {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Validate admin token against database
+    if (!adminToken || typeof adminToken !== "string" || !(await validateAdminToken(supabase, adminToken))) {
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -36,10 +51,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Generate synthetic email from faculty code
     const syntheticEmail = `${facultyCode.toLowerCase()}@faculty.edulearn.local`;
