@@ -33,10 +33,8 @@ serve(async (req) => {
       },
     };
 
-    // Debug: log credential comparison (remove after fixing)
-    console.log("Input userId:", JSON.stringify(userId), "Input password:", JSON.stringify(password));
-    console.log("CSE userId:", JSON.stringify(adminCredentials.cse.userId), "CSE password:", JSON.stringify(adminCredentials.cse.password));
-    console.log("IT userId:", JSON.stringify(adminCredentials.it.userId), "IT password:", JSON.stringify(adminCredentials.it.password));
+    // Sanitized log — never log passwords or secrets
+    console.log("Admin login attempt for branch:", branchId);
 
     // Find matching admin credentials for the branch
     const branchKey = Object.keys(adminCredentials).find(key => {
