@@ -113,7 +113,15 @@ const AdminDashboard = () => {
         },
       });
 
-      if (error || !data?.success) {
+      if (error) {
+        // Parse error context from non-2xx responses
+        let msg = 'Failed to create faculty account';
+        try {
+          const ctx = error.context ? await error.context.json() : null;
+          if (ctx?.error) msg = ctx.error;
+        } catch { /* ignore parse errors */ }
+        toast.error(msg);
+      } else if (!data?.success) {
         toast.error(data?.error || 'Failed to create faculty account');
       } else {
         toast.success('Faculty account created successfully!');
