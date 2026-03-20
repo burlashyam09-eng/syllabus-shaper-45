@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Shield, LogOut, Users, BookOpen, GitBranch, FileText, Plus, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Shield, LogOut, Users, BookOpen, GitBranch, FileText, Plus, Eye, EyeOff, Trash2, RefreshCw } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBranches, useRegulations } from '@/hooks/useBranchesAndRegulations';
 import { supabase } from '@/integrations/supabase/client';
@@ -183,6 +183,9 @@ const AdminDashboard = () => {
                 <Shield className="w-3 h-3 mr-1" />
                 Admin
               </Badge>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => fetchData(adminBranchId)} title="Refresh">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
               <ThemeToggle />
               <Button variant="destructive" size="sm" onClick={handleLogout}>
                 <LogOut className="w-4 h-4 mr-1" />
