@@ -246,8 +246,8 @@ const Dashboard = () => {
     }
   };
 
-  const handleRespondToRequest = async (requestId: string, status: 'approved' | 'rejected') => {
-    await respondToRequest.mutateAsync({ id: requestId, status });
+  const handleRespondToRequest = async (requestId: string, reply: string) => {
+    await respondToRequest.mutateAsync({ id: requestId, reply });
   };
 
   const canEditRegulation = (regulation: typeof regulations[0]) => {
