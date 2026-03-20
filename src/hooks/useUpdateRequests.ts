@@ -10,6 +10,7 @@ export interface UpdateRequest {
   owner_id: string;
   message: string;
   status: 'pending' | 'approved' | 'rejected';
+  reply: string | null;
   created_at: string;
   updated_at: string;
 }
