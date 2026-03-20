@@ -65,6 +65,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import collegeLogo from '@/assets/college-logo.png';
 
 const Dashboard = () => {
+  const queryClient = useQueryClient();
   const { profile, role, signOut, isFaculty, user } = useAuth();
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [facultyDisplayName, setFacultyDisplayName] = useState('');
