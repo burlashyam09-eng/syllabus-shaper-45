@@ -418,6 +418,7 @@ export type Database = {
           id: string
           message: string
           owner_id: string
+          reply: string | null
           requester_id: string
           status: string
           subject_id: string
@@ -428,6 +429,7 @@ export type Database = {
           id?: string
           message: string
           owner_id: string
+          reply?: string | null
           requester_id: string
           status?: string
           subject_id: string
@@ -438,6 +440,7 @@ export type Database = {
           id?: string
           message?: string
           owner_id?: string
+          reply?: string | null
           requester_id?: string
           status?: string
           subject_id?: string
