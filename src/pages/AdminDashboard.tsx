@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Shield, LogOut, Users, BookOpen, GitBranch, FileText, Plus, Eye, EyeOff, Trash2, RefreshCw } from 'lucide-react';
+import { Shield, LogOut, Users, BookOpen, GitBranch, FileText, Plus, Eye, EyeOff, Trash2, RefreshCw, Pencil } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBranches, useRegulations } from '@/hooks/useBranchesAndRegulations';
 import { supabase } from '@/integrations/supabase/client';
