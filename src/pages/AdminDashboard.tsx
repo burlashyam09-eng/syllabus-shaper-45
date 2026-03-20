@@ -50,6 +50,13 @@ const AdminDashboard = () => {
   const [deleteTarget, setDeleteTarget] = useState<FacultyEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Edit faculty
+  const [editTarget, setEditTarget] = useState<FacultyEntry | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [editing, setEditing] = useState(false);
+
   const branchName = branches.find(b => b.id === adminBranchId)?.name || 'Unknown Branch';
 
   const fetchData = async (branchId: string) => {
