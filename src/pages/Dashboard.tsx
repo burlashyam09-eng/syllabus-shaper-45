@@ -316,6 +316,11 @@ const Dashboard = () => {
                   )}
                 </div>
               </div>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
+                const { queryClient } = require('@tanstack/react-query');
+              }} title="Refresh">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
               <ThemeToggle />
               {isFaculty && (
                 <Button variant="outline" size="icon" className="relative" onClick={() => setShowRequests(!showRequests)}>
