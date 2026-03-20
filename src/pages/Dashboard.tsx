@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
@@ -58,11 +59,13 @@ import {
   Bell,
   Check,
   X,
+  RefreshCw,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import collegeLogo from '@/assets/college-logo.png';
 
 const Dashboard = () => {
+  const queryClient = useQueryClient();
   const { profile, role, signOut, isFaculty, user } = useAuth();
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [facultyDisplayName, setFacultyDisplayName] = useState('');
@@ -315,6 +318,9 @@ const Dashboard = () => {
                   )}
                 </div>
               </div>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => queryClient.invalidateQueries()} title="Refresh">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
               <ThemeToggle />
               {isFaculty && (
                 <Button variant="outline" size="icon" className="relative" onClick={() => setShowRequests(!showRequests)}>
