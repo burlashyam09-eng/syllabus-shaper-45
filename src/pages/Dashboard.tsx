@@ -86,10 +86,6 @@ const Dashboard = () => {
   const { data: allSubjects = [], isLoading: subjectsLoading } = useAllBranchSubjects(filterRegulation);
   const subjects = allSubjects;
   
-  // Get creator names for subjects
-  const creatorIds = subjects.map(s => s.created_by);
-  const { data: creatorNames = {} } = useSubjectCreators(creatorIds);
-  
   const createSubject = useCreateSubject();
   const updateSubject = useUpdateSubject();
   const deleteSubject = useDeleteSubject();
@@ -99,6 +95,14 @@ const Dashboard = () => {
   const { data: sentRequests = [] } = useSentRequests();
   const createUpdateRequest = useCreateUpdateRequest();
   const respondToRequest = useRespondToRequest();
+
+  // Get creator names for subjects + request participants
+  const creatorIds = [
+    ...subjects.map(s => s.created_by),
+    ...sentRequests.map(r => r.owner_id),
+    ...receivedRequests.map(r => r.requester_id),
+  ];
+  const { data: creatorNames = {} } = useSubjectCreators(creatorIds);
 
   // Dialog states
   const [isSubjectDialogOpen, setIsSubjectDialogOpen] = useState(false);
@@ -113,6 +117,7 @@ const Dashboard = () => {
   const [requestSubject, setRequestSubject] = useState<typeof subjects[0] | null>(null);
   const [requestMessage, setRequestMessage] = useState('');
   const [showRequests, setShowRequests] = useState(false);
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
 
   // Form states
   const [newSubjectName, setNewSubjectName] = useState('');
@@ -246,8 +251,8 @@ const Dashboard = () => {
     }
   };
 
-  const handleRespondToRequest = async (requestId: string, status: 'approved' | 'rejected') => {
-    await respondToRequest.mutateAsync({ id: requestId, status });
+  const handleRespondToRequest = async (requestId: string, reply: string) => {
+    await respondToRequest.mutateAsync({ id: requestId, reply });
   };
 
   const canEditRegulation = (regulation: typeof regulations[0]) => {
@@ -709,18 +714,21 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Received Requests Panel */}
+      {/* Received & Sent Requests Panel */}
       <Dialog open={showRequests} onOpenChange={setShowRequests}>
         <DialogContent className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Update Requests</DialogTitle>
             <DialogDescription>
-              Requests from other faculty to update your subjects.
+              Manage requests from other faculty and view replies to your requests.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          
+          {/* Received Requests */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground">Received Requests</h3>
             {receivedRequests.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No pending requests</p>
+              <p className="text-sm text-muted-foreground text-center py-2">No pending requests</p>
             ) : (
               receivedRequests.map((req) => {
                 const reqSubject = subjects.find(s => s.id === req.subject_id);
@@ -736,16 +744,61 @@ const Dashboard = () => {
                         <Badge variant="outline">Pending</Badge>
                       </div>
                       <p className="text-sm text-foreground">{req.message}</p>
-                      <div className="flex gap-2">
-                        <Button size="sm" className="gap-1" onClick={() => handleRespondToRequest(req.id, 'approved')}>
-                          <Check className="w-3 h-3" />
-                          Approve
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1" onClick={() => handleRespondToRequest(req.id, 'rejected')}>
-                          <X className="w-3 h-3" />
-                          Reject
+                      <div className="space-y-2">
+                        <Textarea
+                          placeholder="Type your reply..."
+                          value={replyTexts[req.id] || ''}
+                          onChange={(e) => setReplyTexts(prev => ({ ...prev, [req.id]: e.target.value }))}
+                          rows={2}
+                        />
+                        <Button 
+                          size="sm" 
+                          className="gap-1 w-full"
+                          disabled={!replyTexts[req.id]?.trim() || respondToRequest.isPending}
+                          onClick={() => {
+                            handleRespondToRequest(req.id, replyTexts[req.id]);
+                            setReplyTexts(prev => { const n = { ...prev }; delete n[req.id]; return n; });
+                          }}
+                        >
+                          <Send className="w-3 h-3" />
+                          Send Reply
                         </Button>
                       </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {/* Sent Requests */}
+          <div className="space-y-3 mt-4 border-t pt-4">
+            <h3 className="text-sm font-semibold text-foreground">Your Sent Requests</h3>
+            {sentRequests.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-2">No sent requests</p>
+            ) : (
+              sentRequests.map((req) => {
+                const reqSubject = subjects.find(s => s.id === req.subject_id);
+                const ownerName = creatorNames[req.owner_id] || 'Unknown Faculty';
+                return (
+                  <Card key={req.id}>
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">To: {ownerName}</p>
+                          <p className="text-xs text-muted-foreground">Subject: {reqSubject?.name || 'Unknown'}</p>
+                        </div>
+                        <Badge variant={req.status === 'pending' ? 'outline' : 'secondary'}>
+                          {req.status === 'pending' ? 'Pending' : 'Replied'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-foreground">{req.message}</p>
+                      {req.reply && (
+                        <div className="bg-muted rounded-md p-3 mt-1">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Reply from {ownerName}:</p>
+                          <p className="text-sm text-foreground">{req.reply}</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
