@@ -181,6 +181,55 @@ const AdminDashboard = () => {
     setDeleting(false);
   };
 
+  const openEditDialog = (faculty: FacultyEntry) => {
+    setEditTarget(faculty);
+    setEditName(faculty.name || '');
+    setEditPassword('');
+    setShowEditPassword(false);
+  };
+
+  const handleEditFaculty = async () => {
+    if (!editTarget) return;
+    if (!editName.trim() && !editPassword) {
+      toast.error('Please provide a name or new password');
+      return;
+    }
+    if (editPassword && editPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setEditing(true);
+    try {
+      const adminToken = sessionStorage.getItem('admin_token');
+      const { data, error } = await supabase.functions.invoke('edit-faculty', {
+        body: {
+          adminToken,
+          facultyUserId: editTarget.id,
+          ...(editName.trim() ? { name: editName.trim() } : {}),
+          ...(editPassword ? { password: editPassword } : {}),
+        },
+      });
+
+      if (error) {
+        let msg = 'Failed to update faculty';
+        try {
+          const ctx = error.context ? await error.context.json() : null;
+          if (ctx?.error) msg = ctx.error;
+        } catch { /* ignore */ }
+        toast.error(msg);
+      } else if (!data?.success) {
+        toast.error(data?.error || 'Failed to update faculty');
+      } else {
+        toast.success('Faculty updated successfully');
+        setEditTarget(null);
+        fetchData(adminBranchId);
+      }
+    } catch {
+      toast.error('Failed to update faculty');
+    }
+    setEditing(false);
+  };
+
   if (!isAuthorized) return null;
 
   return (
