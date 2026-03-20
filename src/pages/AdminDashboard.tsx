@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Shield, LogOut, Users, BookOpen, GitBranch, FileText, Plus, Eye, EyeOff, Trash2, RefreshCw } from 'lucide-react';
+import { Shield, LogOut, Users, BookOpen, GitBranch, FileText, Plus, Eye, EyeOff, Trash2, RefreshCw, Pencil } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBranches, useRegulations } from '@/hooks/useBranchesAndRegulations';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,6 +49,13 @@ const AdminDashboard = () => {
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<FacultyEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Edit faculty
+  const [editTarget, setEditTarget] = useState<FacultyEntry | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const branchName = branches.find(b => b.id === adminBranchId)?.name || 'Unknown Branch';
 
@@ -172,6 +179,55 @@ const AdminDashboard = () => {
       toast.error('Failed to delete faculty account');
     }
     setDeleting(false);
+  };
+
+  const openEditDialog = (faculty: FacultyEntry) => {
+    setEditTarget(faculty);
+    setEditName(faculty.name || '');
+    setEditPassword('');
+    setShowEditPassword(false);
+  };
+
+  const handleEditFaculty = async () => {
+    if (!editTarget) return;
+    if (!editName.trim() && !editPassword) {
+      toast.error('Please provide a name or new password');
+      return;
+    }
+    if (editPassword && editPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setEditing(true);
+    try {
+      const adminToken = sessionStorage.getItem('admin_token');
+      const { data, error } = await supabase.functions.invoke('edit-faculty', {
+        body: {
+          adminToken,
+          facultyUserId: editTarget.id,
+          ...(editName.trim() ? { name: editName.trim() } : {}),
+          ...(editPassword ? { password: editPassword } : {}),
+        },
+      });
+
+      if (error) {
+        let msg = 'Failed to update faculty';
+        try {
+          const ctx = error.context ? await error.context.json() : null;
+          if (ctx?.error) msg = ctx.error;
+        } catch { /* ignore */ }
+        toast.error(msg);
+      } else if (!data?.success) {
+        toast.error(data?.error || 'Failed to update faculty');
+      } else {
+        toast.success('Faculty updated successfully');
+        setEditTarget(null);
+        fetchData(adminBranchId);
+      }
+    } catch {
+      toast.error('Failed to update faculty');
+    }
+    setEditing(false);
   };
 
   if (!isAuthorized) return null;
@@ -330,7 +386,15 @@ const AdminDashboard = () => {
                           <td className="p-3 text-muted-foreground">
                             {new Date(faculty.created_at).toLocaleDateString()}
                           </td>
-                          <td className="p-3 text-right">
+                          <td className="p-3 text-right space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-primary hover:text-primary hover:bg-primary/10"
+                              onClick={() => openEditDialog(faculty)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -370,6 +434,50 @@ const AdminDashboard = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Faculty Dialog */}
+      <AlertDialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Edit Faculty — {editTarget?.faculty_code}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Update the faculty name or reset their password.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Faculty name" />
+            </div>
+            <div className="space-y-2">
+              <Label>New Password (leave blank to keep current)</Label>
+              <div className="relative">
+                <Input
+                  type={showEditPassword ? 'text' : 'password'}
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Min 6 characters"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setShowEditPassword(!showEditPassword)}
+                >
+                  {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={editing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleEditFaculty} disabled={editing}>
+              {editing ? 'Saving...' : 'Save Changes'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
