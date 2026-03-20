@@ -53,22 +53,28 @@ const AdminDashboard = () => {
   const branchName = branches.find(b => b.id === adminBranchId)?.name || 'Unknown Branch';
 
   const fetchData = async (branchId: string) => {
-    // Count subjects for this branch only
-    const { count: sCount } = await supabase
-      .from('subjects')
-      .select('id', { count: 'exact', head: true })
-      .eq('branch_id', branchId);
-    setSubjectCount(sCount || 0);
+    try {
+      const adminToken = sessionStorage.getItem('admin_token');
+      const { data, error } = await supabase.functions.invoke('list-faculty', {
+        body: { adminToken, branchId },
+      });
 
-    // Fetch faculty list for this branch only
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, faculty_code, branch_id, name, created_at')
-      .eq('branch_id', branchId)
-      .not('faculty_code', 'is', null);
+      if (error) {
+        let msg = 'Failed to load dashboard data';
+        try {
+          const ctx = error.context ? await error.context.json() : null;
+          if (ctx?.error) msg = ctx.error;
+        } catch { /* ignore */ }
+        console.error('Fetch error:', msg);
+        return;
+      }
 
-    if (profiles) {
-      setFacultyList(profiles as FacultyEntry[]);
+      if (data?.success) {
+        setSubjectCount(data.subjectCount || 0);
+        setFacultyList(data.faculty || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
     }
   };
 
