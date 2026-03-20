@@ -86,8 +86,12 @@ const Dashboard = () => {
   const { data: allSubjects = [], isLoading: subjectsLoading } = useAllBranchSubjects(filterRegulation);
   const subjects = allSubjects;
   
-  // Get creator names for subjects
-  const creatorIds = subjects.map(s => s.created_by);
+  // Get creator names for subjects + request participants
+  const creatorIds = [
+    ...subjects.map(s => s.created_by),
+    ...sentRequests.map(r => r.owner_id),
+    ...receivedRequests.map(r => r.requester_id),
+  ];
   const { data: creatorNames = {} } = useSubjectCreators(creatorIds);
   
   const createSubject = useCreateSubject();
