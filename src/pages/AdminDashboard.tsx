@@ -386,7 +386,15 @@ const AdminDashboard = () => {
                           <td className="p-3 text-muted-foreground">
                             {new Date(faculty.created_at).toLocaleDateString()}
                           </td>
-                          <td className="p-3 text-right">
+                          <td className="p-3 text-right space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-primary hover:text-primary hover:bg-primary/10"
+                              onClick={() => openEditDialog(faculty)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
