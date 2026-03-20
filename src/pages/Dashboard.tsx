@@ -317,9 +317,7 @@ const Dashboard = () => {
                   )}
                 </div>
               </div>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
-                const { queryClient } = require('@tanstack/react-query');
-              }} title="Refresh">
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => queryClient.invalidateQueries()} title="Refresh">
                 <RefreshCw className="w-4 h-4" />
               </Button>
               <ThemeToggle />
