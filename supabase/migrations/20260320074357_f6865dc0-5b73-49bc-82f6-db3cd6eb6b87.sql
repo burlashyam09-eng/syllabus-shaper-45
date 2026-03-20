@@ -1,0 +1,1 @@
+ALTER TABLE public.update_requests DROP CONSTRAINT update_requests_status_check;
