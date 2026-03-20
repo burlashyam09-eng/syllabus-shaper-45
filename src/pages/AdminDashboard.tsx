@@ -53,22 +53,20 @@ const AdminDashboard = () => {
   const branchName = branches.find(b => b.id === adminBranchId)?.name || 'Unknown Branch';
 
   const fetchData = async (branchId: string) => {
-    // Count subjects for this branch only
-    const { count: sCount } = await supabase
-      .from('subjects')
-      .select('id', { count: 'exact', head: true })
-      .eq('branch_id', branchId);
-    setSubjectCount(sCount || 0);
-
-    // Fetch faculty list for this branch only
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, faculty_code, branch_id, name, created_at')
-      .eq('branch_id', branchId)
-      .not('faculty_code', 'is', null);
-
-    if (profiles) {
-      setFacultyList(profiles as FacultyEntry[]);
+    const token = sessionStorage.getItem('admin_token');
+    try {
+      const response = await supabase.functions.invoke('get-branch-faculty', {
+        body: { adminToken: token, branchId },
+      });
+      if (response.data?.success) {
+        setSubjectCount(response.data.subjectCount || 0);
+        setFacultyList(response.data.faculty as FacultyEntry[]);
+      } else {
+        toast.error(response.data?.error || 'Failed to fetch data');
+      }
+    } catch (err) {
+      console.error('Failed to fetch admin data:', err);
+      toast.error('Failed to fetch data');
     }
   };
 
