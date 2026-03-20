@@ -6,17 +6,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function validateAdminToken(supabase: any, adminToken: string, requiredBranch?: string): Promise<{ valid: boolean; branchId?: string }> {
+async function validateAdminToken(supabase: any, adminToken: string): Promise<boolean> {
   const { data, error } = await supabase
     .from("admin_tokens")
-    .select("id, branch_id")
+    .select("id")
     .eq("token", adminToken)
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
 
-  if (error || !data) return { valid: false };
-  if (requiredBranch && data.branch_id !== requiredBranch) return { valid: false };
-  return { valid: true, branchId: data.branch_id };
+  return !error && !!data;
 }
 
 serve(async (req) => {
@@ -31,28 +29,11 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Validate admin token and enforce branch scope
-    if (!adminToken || typeof adminToken !== "string") {
+    // Validate admin token against database
+    if (!adminToken || typeof adminToken !== "string" || !(await validateAdminToken(supabase, adminToken))) {
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Map branchId UUID to branch key for comparison
-    const { data: branchData } = await supabase
-      .from("branches")
-      .select("name")
-      .eq("id", branchId)
-      .maybeSingle();
-
-    const branchKey = branchData?.name?.toLowerCase();
-
-    const tokenResult = await validateAdminToken(supabase, adminToken, branchKey);
-    if (!tokenResult.valid) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Unauthorized: token does not match target branch" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

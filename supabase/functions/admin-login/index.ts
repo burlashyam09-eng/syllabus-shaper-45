@@ -6,9 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,33 +20,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    // Rate limiting: check recent attempts from this IP
-    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const windowStart = new Date(Date.now() - WINDOW_MS).toISOString();
-
-    const { count: attemptCount } = await supabase
-      .from("admin_login_attempts")
-      .select("id", { count: "exact", head: true })
-      .eq("ip_address", clientIp)
-      .gt("attempted_at", windowStart);
-
-    if ((attemptCount || 0) >= MAX_ATTEMPTS) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Too many login attempts. Please try again later." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Record this attempt
-    await supabase.from("admin_login_attempts").insert({ ip_address: clientIp });
-
-    // Add a constant-time delay to slow brute force
-    await new Promise(r => setTimeout(r, 500));
 
     // Load credentials from environment secrets
     const adminCredentials: Record<string, { userId: string; password: string }> = {
@@ -71,6 +41,12 @@ serve(async (req) => {
 
     if (branchKey) {
       const token = crypto.randomUUID();
+
+      // Store token in admin_tokens table with 30-minute expiry
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
+
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
       const { error: insertError } = await supabase
@@ -84,12 +60,6 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
-      // Clean up old attempts on successful login
-      await supabase
-        .from("admin_login_attempts")
-        .delete()
-        .eq("ip_address", clientIp);
 
       return new Response(
         JSON.stringify({ success: true, token, branchId }),

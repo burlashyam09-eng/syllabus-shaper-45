@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,34 +10,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Authenticate the caller
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const authHeader = req.headers.get("Authorization");
-    
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader || "" } },
-    });
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const { messages, moduleContext } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    // Sanitize moduleContext to prevent prompt injection
-    const safeName = String(moduleContext?.moduleName || "Unknown").slice(0, 200);
-    const safeSubject = String(moduleContext?.subjectName || "Unknown").slice(0, 200);
-    const safeCode = String(moduleContext?.subjectCode || "").slice(0, 50);
-    const safeUnit = String(moduleContext?.unitName || "Unknown").slice(0, 200);
-    const safeTopics = Array.isArray(moduleContext?.topics)
-      ? moduleContext.topics.map((t: unknown) => String(t).slice(0, 100)).slice(0, 20).join(", ")
-      : "Not specified";
 
     const systemPrompt = `You are a concise educational assistant for college students. You help with:
 - Defining technical and general terms
@@ -47,10 +21,10 @@ serve(async (req) => {
 - Generating structured summaries and mind maps (using text-based formatting with indentation and bullet points)
 
 Current module context:
-- Module: ${safeName}
-- Subject: ${safeSubject} (${safeCode})
-- Unit: ${safeUnit}
-- Topics: ${safeTopics}
+- Module: ${moduleContext?.moduleName || "Unknown"}
+- Subject: ${moduleContext?.subjectName || "Unknown"} (${moduleContext?.subjectCode || ""})
+- Unit: ${moduleContext?.unitName || "Unknown"}
+- Topics: ${moduleContext?.topics?.join(", ") || "Not specified"}
 
 Rules:
 - Keep answers concise and academic

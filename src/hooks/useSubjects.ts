@@ -108,10 +108,12 @@ export function useSubjectCreators(creatorIds: string[]) {
       if (creatorIds.length === 0) return {};
       const uniqueIds = [...new Set(creatorIds)];
       const { data, error } = await supabase
-        .rpc('get_profile_names', { _ids: uniqueIds });
+        .from('profiles')
+        .select('id, name')
+        .in('id', uniqueIds);
       if (error) throw error;
       const map: Record<string, string> = {};
-      data?.forEach((p: { id: string; name: string }) => { map[p.id] = p.name; });
+      data?.forEach(p => { map[p.id] = p.name; });
       return map;
     },
     enabled: creatorIds.length > 0,
