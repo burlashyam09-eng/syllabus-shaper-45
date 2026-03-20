@@ -90,19 +90,19 @@ export function useRespondToRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: 'approved' | 'rejected' }) => {
+    mutationFn: async ({ id, reply }: { id: string; reply: string }) => {
       const { error } = await supabase
         .from('update_requests')
-        .update({ status, updated_at: new Date().toISOString() })
+        .update({ status: 'replied' as any, reply, updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['update-requests'] });
-      toast.success(`Request ${variables.status} successfully`);
+      toast.success('Reply sent successfully');
     },
     onError: (error) => {
-      toast.error('Failed to respond: ' + error.message);
+      toast.error('Failed to reply: ' + error.message);
     },
   });
 }
