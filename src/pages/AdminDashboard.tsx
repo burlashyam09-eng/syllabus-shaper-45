@@ -148,7 +148,14 @@ const AdminDashboard = () => {
         },
       });
 
-      if (error || !data?.success) {
+      if (error) {
+        let msg = 'Failed to delete faculty account';
+        try {
+          const ctx = error.context ? await error.context.json() : null;
+          if (ctx?.error) msg = ctx.error;
+        } catch { /* ignore */ }
+        toast.error(msg);
+      } else if (!data?.success) {
         toast.error(data?.error || 'Failed to delete faculty account');
       } else {
         toast.success('Faculty account deleted successfully');
