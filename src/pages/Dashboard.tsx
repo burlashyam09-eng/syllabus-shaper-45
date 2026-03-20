@@ -113,6 +113,7 @@ const Dashboard = () => {
   const [requestSubject, setRequestSubject] = useState<typeof subjects[0] | null>(null);
   const [requestMessage, setRequestMessage] = useState('');
   const [showRequests, setShowRequests] = useState(false);
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
 
   // Form states
   const [newSubjectName, setNewSubjectName] = useState('');
