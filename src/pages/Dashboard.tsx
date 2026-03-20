@@ -86,14 +86,6 @@ const Dashboard = () => {
   const { data: allSubjects = [], isLoading: subjectsLoading } = useAllBranchSubjects(filterRegulation);
   const subjects = allSubjects;
   
-  // Get creator names for subjects + request participants
-  const creatorIds = [
-    ...subjects.map(s => s.created_by),
-    ...sentRequests.map(r => r.owner_id),
-    ...receivedRequests.map(r => r.requester_id),
-  ];
-  const { data: creatorNames = {} } = useSubjectCreators(creatorIds);
-  
   const createSubject = useCreateSubject();
   const updateSubject = useUpdateSubject();
   const deleteSubject = useDeleteSubject();
@@ -103,6 +95,14 @@ const Dashboard = () => {
   const { data: sentRequests = [] } = useSentRequests();
   const createUpdateRequest = useCreateUpdateRequest();
   const respondToRequest = useRespondToRequest();
+
+  // Get creator names for subjects + request participants
+  const creatorIds = [
+    ...subjects.map(s => s.created_by),
+    ...sentRequests.map(r => r.owner_id),
+    ...receivedRequests.map(r => r.requester_id),
+  ];
+  const { data: creatorNames = {} } = useSubjectCreators(creatorIds);
 
   // Dialog states
   const [isSubjectDialogOpen, setIsSubjectDialogOpen] = useState(false);
